@@ -88,6 +88,11 @@ def f2(t, y):
     return -np.sin(t - np.pi / 2)
 
 
+def f3(t, y, yq):
+    return -y + yq
+
+
+
 def delay1(t):
     return t - 1
 
@@ -97,7 +102,7 @@ def delay2(t):
 
 
 def phi1(t):
-    return np.sin(t)
+    return 1
 
 
 def phi2(t):
@@ -200,9 +205,7 @@ def rk4_cont(f, t_span, phi, y0, delay, h):
                 return sol[i](var)
         print(f"1 the point {var} isn't part of the domain of the solution")
 
-
     return solution
-
 
 
 def rk4_cont_test(f, ff, t_span, phi, y0, delay, h):
@@ -300,36 +303,25 @@ def rk4_cont_before_tests(f, t_span, phi, delay, h):
 
 
 # NOTE: Continuous case
-t0, tf = 0, 10
+t0, tf = 0, 3
 t_span = [t0, tf]
 # t = np.arange(0, 100, 0.1)
-h = 0.1
+h = 0.01
 t = np.arange(t0, tf, h)
 
 
 # TEST: second test (the combined version)
 # WARN: O problema é no sol2
 y0 = 0
-sol1 = rk4_cont(f1, t_span, phi2, y0, delay2, h)
+sol1 = rk4_cont(f3, t_span, phi2, y0, delay1, h)
 y = [sol1(i) for i in t]
-sin = np.sin(t)
 
-error = 0
-error2 = 0
-for i in range(100):
-    x = random.uniform(t0, tf)
-    diff = abs(np.sin(x) - sol1(x))
-    # print(diff)
-    if diff > error:
-        error = diff
 
 # print("len of t", len(t))
-print("max error cont", error)
 
 
 print("len(t), len(y)", len(t), len(y))
 plt.plot(t, y, label="cont", color="green")
-plt.plot(t, sin, label="sin", color="red")
 plt.legend()
 plt.show()
 

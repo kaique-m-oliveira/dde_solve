@@ -33,7 +33,7 @@ t_end = 4 * np.pi
 y_initial = phi_func_cos_sin_test(t_start)
 
 # --- CHANGE THIS LINE ---
-h_step = 0.005  # Try a much smaller step size
+h_step = 0.01  # Try a much smaller step size
 # --- END CHANGE ---
 
 h_disc_guess = 0.01
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     print(f"Integrating from {t_start} to {t_end} with h={h_step}")
 
     # Solve the DDE
-    times, solutions = solve_dde_rk4_hermite(
+    times, solutions, history = solve_dde_rk4_hermite(
         f_dde_cos_sin_test,
         alpha_func_cos_sin_test,
         phi_func_cos_sin_test,

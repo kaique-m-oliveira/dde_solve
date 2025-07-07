@@ -1,3 +1,4 @@
+from bisect import bisect_right
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
@@ -37,7 +38,7 @@ class OneStep:
         tn, h, yn = self.t[0], self.t[1] - self.t[0], self.y[0]
         f, eta, alpha = self.solver.f, self.solver.eta, self.solver.alpha
         yn_plus = self.y[1]
-        t2, t3 = theta * theta, theta * theta * theta
+        t2, t3 = theta**2, theta**3
 
         d1 = 2 * t3 - 3 * t2 + 1
         d2 = -2 * t3 + 3 * t2
@@ -78,7 +79,8 @@ class OneStep:
         return (
             d1 * yn
             + d2 * yn_plus
-            + d3 * h * self.K[0] * d4 * h * self.K[4]
+            + d3 * h * self.K[0]
+            + d4 * h * self.K[4]
             + d5 * h * self.K[5]
         )
 
@@ -144,6 +146,7 @@ class OneStep:
                 )
                 * self.h
             )
+            print("oops")
             return False, self.uni_local_error
 
     def try_step_CRK(self):
@@ -217,16 +220,28 @@ class Solver:
         self.etas = [phi]
         self.params = CRKParameters()
 
+    # @property
+    # def eta(self):
+    #     def eval(t):
+    #         for i in range(len(self.t)):
+    #             if t <= self.t[i]:
+    #                 # print("in, t < ti", t, self.t[i])
+    #                 return self.etas[i](t)
+    #             # print("out, t < ti", t, self.t[i])
+    #
+    #     # print("eval", eval)
+    #     return eval
+
     @property
     def eta(self):
         def eval(t):
-            for i in range(len(self.t)):
-                if t <= self.t[i]:
-                    # print("in, t < ti", t, self.t[i])
-                    return self.etas[i](t)
-                # print("out, t < ti", t, self.t[i])
+            idx = bisect_right(self.t, t)
+            if idx == 0:
+                return self.etas[0](t)
+            if idx >= len(self.etas):
+                return self.etas[-1](t)
+            return self.etas[idx - 1](t)
 
-        # print("eval", eval)
         return eval
 
     def solve_dde(self):
@@ -247,6 +262,9 @@ class Solver:
                 self.steps.append(step)
                 self.y.append(step.y[1])
                 self.etas.append(step.eta[1])
+                h = step.h_next
+            else:
+                print("this is fucked")
 
         h = tf - self.t[-1]
         onestep = OneStep(self, tf, h, self.y[-1])
@@ -269,14 +287,16 @@ def alpha(t):
     return t - np.pi / 2
 
 
-t_span = [0, 3]
+t_span = [0, 1.3]
 
 solver = Solver(f, alpha, phi, t_span)
 solver.solve_dde()
 
-x = np.linspace(0, 3, 100)
+x = np.linspace(0, 1.3, 100)
 sin = np.sin(x)
-sol = [solver.eta(i) for i in x]
+sol = np.array([solver.eta(i) for i in x])
+print("min", min(abs(sol - sin)), "max", max(abs(sol - sin)))
+#
 
 plt.plot(x, sin, color="red")
 plt.plot(x, sol, color="blue")

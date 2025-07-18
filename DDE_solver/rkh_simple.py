@@ -161,6 +161,13 @@ class OneStep:
             5 * self.K[7] / 12 + self.K[4] / 12
         )
 
+        print(f'eta[1](t_pi1) - sol {abs(self.eta[1]
+              (t_pi1) - (np.exp(t_pi1) + np.sin(t_pi1)))}')
+        print(f'eta[2](t_pi2) - sol {abs(self.eta[1]
+              (t_pi2) - (np.exp(t_pi2) + np.sin(t_pi2)))}')
+        print(f'y_tilde {self.y_tilde}, y {self.y[1]}, sol {
+              np.exp(self.t[0] + self.h) + np.sin(self.t[0] + self.h)}')
+
     def test_error_est(self):
         tn, h, yn = self.t[0], self.h, self.y[0]
         f, eta, alpha = self.solver.f, self.solver.eta, self.solver.alpha
@@ -263,7 +270,8 @@ class OneStep:
         # self.test_one_step_RK4()
         # self.test_eta_0()
         # self.test_eta_1()
-        # self.error_est_method()
+        self.error_est_method()
+        input('fuuuck')
         # self.test_error_est()
         # input('one_step is all good?')
 

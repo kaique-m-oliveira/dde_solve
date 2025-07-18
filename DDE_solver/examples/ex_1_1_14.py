@@ -1,4 +1,7 @@
-from DDE_solver.rkh_state import *
+# from DDE_solver.rkh_state import *
+from DDE_solver.rkh_step_rejection import *
+# from DDE_solver.rkh_testing import *
+# from DDE_solver.rkh import *
 
 # WARN: STATE EXAMPLE
 
@@ -30,6 +33,8 @@ sol = np.array([solver.eta(i) for i in tt])
 # for i in range(len(tt)):
 #     print(tt[i], realsol[i] - sol[i])
 print("max", max(abs(sol - realsol)))
+solution = np.array([real_sol(t) for t in solver.t])
+print('adnaed', max(solver.y - solution))
 
 
 plt.plot(tt, realsol, color="red")

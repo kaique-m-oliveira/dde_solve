@@ -36,7 +36,7 @@ sol = np.array([solver.eta(i) for i in tt])
 for i in range(len(tt)):
     print(tt[i], realsol[i] - sol[i])
 #
-print('t values', solver.t)
+# print('t values', solver.t)
 print('diferença no t = 1.999', abs(solver.eta(1.999) - real_sol(1.999)))
 print('diferença no t = 2', abs(solver.eta(2) - real_sol(2)))
 print('diferença no t = 2.00001', abs(solver.eta(2.00001) - real_sol(2.00001)))

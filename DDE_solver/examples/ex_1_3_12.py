@@ -2,34 +2,46 @@
 # from DDE_solver.rkh_step_rejection import *
 # from DDE_solver.rkh_testing import *
 # from DDE_solver.rkh import *
-# from DDE_solver.rkh_overlapping import *
-# from DDE_solver.rkh_ovl_simp_newton import *
-from DDE_solver.solve_dde import *
+import numpy as np
+from DDE_solver.rkh_ovl_simp_newton import *
 
 # WARN: STATE EXAMPLE
 
 
 def f(t, y, yq):
-    A = 1 - np.exp(-3*np.pi/2)
-    return A * y + yq - A * np.sin(t)
+    return -yq + 5
 
 
 def phi(t):
-    return np.exp(t) + np.sin(t)
+    if t <= -1:
+        return 9/2
+    else:
+        return -1/2
 
 
 def alpha(t, y):
-    return t - 3*np.pi/2
+    return t - y**2 - 2
 
 
 def real_sol(t):
-    return np.exp(t) + np.sin(t)
+    if 0 <= t <= 1:
+        return (1/2)*(t - 1)
+    if 1 <= t <= 125/121:
+        return (11/2)*(t-1)
 
 
-t_span = [1, 2]
+t_span = [0, 2]
 
 solver = Solver(f, alpha, phi, t_span)
-solver.solve_dde()  # real_sol=real_sol)
+solver.f_y = 0
+solver.f_x = -1
+solver.alpha_t = lambda t: 1
+solver.alpha_y = lambda y: -2*y
+solver.phi_t = lambda t: 0
+solver.etas_t.append(lambda t: 0)
+
+
+solver.solve_dde()
 tt = np.linspace(t_span[0], t_span[1], 100)
 realsol = np.array([real_sol(t) for t in tt])
 sol = np.array([solver.eta(i) for i in tt])
@@ -40,6 +52,7 @@ solution = np.array([real_sol(t) for t in solver.t])
 print('adnaed', max(solver.y - solution))
 
 
-plt.plot(tt, realsol, color="red")
-plt.plot(tt, sol, color="blue")
+plt.plot(tt, realsol, color="red", label='real solution')
+plt.plot(tt, sol, color="blue", label='aproxx')
+plt.legend()
 plt.show()

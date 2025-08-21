@@ -2,7 +2,8 @@
 # from DDE_solver.rkh_step_rejection import *
 # from DDE_solver.rkh_testing import *
 # from DDE_solver.rkh import *
-from DDE_solver.rkh_overlapping import *
+import numpy as np
+from DDE_solver.rkh_ovl_simp_newton import *
 
 # WARN: STATE EXAMPLE
 
@@ -23,9 +24,17 @@ def real_sol(t):
     return np.sin(t/20)
 
 
-t_span = [0, 1.2]
+t_span = [0, 1]
 
 solver = Solver(f, alpha, phi, t_span)
+# solver.f_y = -1
+# solver.f_x = 1
+# solver.alpha_t = lambda t: 1 + np.cos(t)
+# solver.alpha_y = 0
+# solver.phi_t = lambda t: (t/20)*np.cos(t/20)
+# solver.etas_t.append(lambda t: (t/20)*np.cos(t/20))
+
+
 solver.solve_dde()
 tt = np.linspace(t_span[0], t_span[1], 100)
 realsol = np.array([real_sol(t) for t in tt])

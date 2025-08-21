@@ -29,11 +29,13 @@ class OneStep:
         self.K = np.array([None for i in range(8)])
         self.Y_tilde = np.zeros(8)
         self.eta = np.zeros(2)
+        self.eta_t = np.zeros(2)
         self.disc_local_error = None
         self.uni_local_error = None
         self.params = CRKParameters()
 
     def _implicit_NCE(self):
+        print('implicit')
         tn, h, yn = self.t[0], self.h, self.y[0]
         f, eta, alpha = self.solver.f, self.solver.eta, self.solver.alpha
 
@@ -66,8 +68,7 @@ class OneStep:
         # Initial guess using K0
         K_init = [self.K[0], self.K[0], self.K[0]]
 
-        # or method='lm', or 'broyden1'
-        sol = root(F, K_init, method='lm', tol=self.params.TOL/h)
+        sol = root(F, K_init, method='lm', tol=1e-14)
         if not sol.success:
             raise RuntimeError("Implicit NCE solver failed to converge.")
 
@@ -84,6 +85,17 @@ class OneStep:
         eta_0_hat = yn + h * (b1 * self.K[0] + b2 * self.K[1] +
                               b3 * self.K[2] + b4 * self.K[3])
         return eta_0_hat
+
+    # WARN: Non full one
+    def _Newton_simplified(self):
+        tn, h, yn = self.t[0], self.h, self.y[0]
+        f, eta, alpha = self.solver.f, self.solver.eta, self.solver.alpha
+        I = np.eye(4)
+        A = np.array([[0, 0, 0, 0], [1/2, 0, 0, 0],
+                     [0, 1/2, 0, 0], [0, 0, 1, 0]])
+
+        f_y, f_x, alpha_y, eta_t = self.solver.f_y, self.solver.f_x, self.solver.alpha_y, self.solver.eta_t
+        J = I - h * np.kron(A, f_y + f_x * eta_t(alpha_n) * alpha_y)
 
     def one_step_RK4(self):
         tn, h, yn = self.t[0], self.h, self.y[0]
@@ -146,7 +158,8 @@ class OneStep:
             * ((2 - 3 * theta1) * theta + theta1 * (4 * theta1 - 3))
             / (2 * (theta1 - 1) * den1)
         )
-        d5 = t2 * nom1 / (2 * theta1 * den1 * (theta1 - 1))
+        d4 = t2 * nom1 / (2 * theta1 * den1 * (theta1 - 1))
+        d5 = (1/(2 * theta1 * den1 * (theta1 - 1))) * t2 * nom1
         tt = tn + theta1 * h
         if alpha(tt, self.eta[0](tt)) > tn:
             self.Y_tilde[5] = self.eta[0](alpha(tt, self.eta[0](tt)))
@@ -160,6 +173,11 @@ class OneStep:
             + d4 * h * self.K[4]
             + d5 * h * self.K[5]
         )
+
+    def _eta_1_t(self):
+        # WARN: Como pegar os índices?
+
+        return
 
     def error_est_method(self):
         # Lobatto formula now for pi1 and pi2
@@ -226,10 +244,15 @@ class OneStep:
 
     def try_step_CRK(self):
 
-        eta = self.solver.eta
-        start_time = time.perf_counter()
+        # eta = self.solver.eta
+        # start_time = time.perf_counter()
         self.one_step_RK4()
-        end_time = time.perf_counter()
+        # K1, K2, K3, K4 = self.K[0], self.K[1], self.K[2], self.K[3]
+        # self._implicit_NCE()
+        # IK1, IK2, IK3, IK4 = self.K[0], self.K[1], self.K[2], self.K[3]
+        # print(f'diff K1 {abs(K1 - IK1)}, K2 {abs(K2 - IK2)}, K3 {
+        #       abs(K3 - IK3)}, K4 {abs(K4 - IK4)}')
+        # end_time = time.perf_counter()
         # print('time for RK4', end_time - start_time)
         self.eta = [self._eta_0, self._eta_1]
         self.error_est_method()
@@ -237,7 +260,10 @@ class OneStep:
         uni_local_disc_satistied = self.uni_local_error_satistied()
 
         if not local_disc_satisfied:
-            print(f'failed discrete step {self.t} with h = {self.h}')
+            print(f'failed discrete t={self.t}, h={
+                  self.h} error = {self.disc_local_error}')  # real diff = {abs(self.y[-1] - REAL_SOL(self.t[0] + self.h))}')
+            # print(f't = {self.t[0] + self.h} \ny1 = {self.y[-1]},\nyt = {self.y_tilde},\nrs = {
+            #       REAL_SOL(self.t[0] + self.h)}  ')
             return False
 
         if not uni_local_disc_satistied:
@@ -255,7 +281,7 @@ class OneStep:
                     self.params.rho * (self.params.TOL /
                                        self.disc_local_error)**(1/4),
                     self.params.rho * (self.params.TOL /
-                                       self.disc_local_error)**(1/5)
+                                       self.uni_local_error)**(1/5)
                 )
             )
 
@@ -263,6 +289,7 @@ class OneStep:
 
     def one_step_CRK(self, max_iter=100):
         step_satisfied = self.try_step_CRK()
+
         if step_satisfied:
             return self
         else:
@@ -270,7 +297,7 @@ class OneStep:
                 step_satisfied = self.try_step_CRK()
                 if step_satisfied:
                     return self
-            print('max iterations reached')
+            raise RuntimeError("one_step_CRK failed")
 
     def test_one_step_RK4(self):
         tn, h, yn = self.t[0], self.h, self.y[0]
@@ -331,7 +358,7 @@ class OneStep:
         print(f'|y_1 - y | {abs(self.y[1] - yy)}')
         print(f'|y_tilde - y | {abs(self.y_tilde - yy)}')
         print(f'we are at {self.t} ')
-        input('to proceed prees something')
+        # input('to proceed prees something')
 
 
 class Solver:
@@ -339,12 +366,18 @@ class Solver:
     def __init__(self, f, alpha, phi, t_span):
         self.t_span = np.array(t_span)
         self.f = f
+        self.f_y = None
+        self.f_x = None
         self.alpha = alpha
+        self.alpha_t = None
+        self.alpha_y = None
         self.phi = phi
+        self.phi_t = None
         self.t = [t_span[0]]
         self.steps = []
         self.y = [phi(t_span[0])]
         self.etas = [phi]
+        self.etas_t = [self.phi_t]
         self.params = CRKParameters()
 
     # WARN: CHATGPT
@@ -365,12 +398,32 @@ class Solver:
             return self.etas[max(0, idx - 1)](t)
         return eval
 
-    def solve_dde(self, discs=[]):
+    @ property
+    def eta_t(self):
+        def eval(t):
+            idx = bisect_right(self.t, t)
+            # Ensure t in [t_k-1, t_k] → use eta_k
+            if idx == 0:
+                return self.etas_t[0](t)
+            if idx >= len(self.etas_t):
+                # avoid evaluating past last known interval
+                return self.etas_t[-1](t)
+            if self.t[idx - 1] <= t <= self.t[idx]:
+                return self.etas_t[idx](t)
+            # Should not occur, but fallback safely
+            return self.etas_t[max(0, idx - 1)](t)
+        return eval
+
+    def solve_dde(self, discs=[], real_sol=None):
+        # WARN: quick and dirty just for tests
+        global REAL_SOL
+        REAL_SOL = real_sol
+
         t, tf = self.t_span[0], self.t_span[-1]
         h = (self.params.TOL ** (1 / 4)) * 0.1  # Initial stepsize
-        print("-" * 80)
-        print("Initial h:", h)
-        print("-" * 80)
+        # print("-" * 80)
+        # print("Initial h:", h)
+        # print("-" * 80)
 
         step_counter = 0
 
@@ -378,20 +431,6 @@ class Solver:
         while t < tf:
             # Ensure stepsize doesn't overshoot tf
             h = min(h, tf - t)
-
-            # # WARN: varying h for test
-            # h = random.choice([0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3])*0.001
-            #
-            # WARN: adding the discontinuity by force
-            # if done:
-            #     h = 0.001
-            #     done = False
-            #
-            # if len(discs) != 0:
-            #     if discs[0] - t < 1.5*h and not done:
-            #         h = discs[0] - t
-            #         done = True
-            #         discs.pop(0)
 
             onestep = OneStep(self, self.t[-1], h, self.y[-1])
             step = onestep.one_step_CRK()
@@ -404,10 +443,16 @@ class Solver:
                 self.steps.append(step)
                 self.y.append(step.y[1])
                 self.etas.append(step.eta[1])
+                self.etas_t.append(step.eta_t)
+                # if real_sol != None:
+                #     print('accepted')
+                #     print(f't = {t} \ny1 = {self.y[-1]},\nrs = {
+                #           REAL_SOL(t)},\ndiff = {abs(self.y[-1] - real_sol(t))} h = {h}')
+                # input('-'*80)
+                h = onestep.h_next  # Use adjusted stepsize from rejection
 
             else:
-                h = onestep.h_next  # Use adjusted stepsize from rejection
-                print(f"Step rejected at t={t:.6f}, new h={h:.6e}")
+                raise RuntimeError("one_step_CRK failed")
 
         # Final step to reach tf exactly
         if abs(t - tf) > 1e-10:  # Avoid numerical precision issues

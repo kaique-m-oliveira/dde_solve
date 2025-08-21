@@ -1,6 +1,6 @@
 # from DDE_solver.rkh_state import *
 # from DDE_solver.rkh_step_rejection import *
-from DDE_solver.rkh_overlapping import *
+from DDE_solver.rkh_ovl_simp_newton import *
 
 # WARN: STATE EXAMPLE
 

@@ -25,7 +25,7 @@ def real_sol(t):
     return np.log(t)
 
 
-t_span = [0.5, 1.5]
+t_span = [0.5, 5]
 
 solver = Solver(f, alpha, phi, t_span)
 solver.f_y = lambda t, y, x: 0

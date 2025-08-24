@@ -10,30 +10,30 @@ from DDE_solver.rkh_ovl_simp_newton import *
 
 
 def f(t, y, yq):
-    return 1 - yq
+    return yq**((1+2*t)**2)
 
 
 def phi(t):
-    return np.log(t)
+    return 1
 
 
 def alpha(t, y):
-    return np.exp(1 - (1/t))
+    return t / (1 + 2*t) ** 2
 
 
 def real_sol(t):
-    return np.log(t)
+    return np.exp(t)
 
 
-t_span = [0.5, 1.5]
+t_span = [0, 2]
 
 solver = Solver(f, alpha, phi, t_span)
 solver.f_y = lambda t, y, x: 0
-solver.f_x = lambda t, y, x: -1
-solver.alpha_t = lambda t, y: (e**(1 - 1 / t)) / t**2
+solver.f_x = lambda t, y, x:  ((1+2*t)**2 - t) * x**((1+2*t)**2)
+solver.alpha_t = lambda t, y: (1 - 2*t)/(1 + 2*t)**3
 solver.alpha_y = lambda t, y: 0
-solver.phi_t = lambda t: 1 / t
-solver.etas_t.append(lambda t: 1 / t)
+solver.phi_t = lambda t: 0
+solver.etas_t.append(lambda t: 0)
 
 
 solver.solve_dde()

@@ -1,8 +1,8 @@
 # from DDE_solver.rkh_state import *
 # from DDE_solver.rkh_step_rejection import *
 # from DDE_solver.rkh_overlapping import *
-# from DDE_solver.rkh_ovl_simp_newton import *
-from DDE_solver.solve_dde import *
+from DDE_solver.rkh_ovl_simp_newton import *
+# from DDE_solver.solve_dde import *
 
 # WARN: STATE EXAMPLE
 
@@ -35,6 +35,6 @@ sol = np.array([solver.eta(i) for i in tt])
 print("max", max(abs(sol - realsol)))
 #
 
-plt.plot(tt, realsol, color="red")
-plt.plot(tt, sol, color="blue")
+plt.plot(tt, realsol, color="red", label='real solution')
+plt.plot(tt, sol, color="blue", label='aproxx')
 plt.show()

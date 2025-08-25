@@ -3,14 +3,14 @@
 # from DDE_solver.rkh_testing import *
 # from DDE_solver.rkh import *
 # from DDE_solver.rkh_overlapping import *
-# from DDE_solver.rkh_ovl_simp_newton import *
+from DDE_solver.rkh_ovl_simp_newton import *
 # from DDE_solver.solve_dde import *
-from DDE_solver.rkh_NDDE import *
+# from DDE_solver.rkh_NDDE import *
 
 # WARN: STATE EXAMPLE
 
 
-def f(t, y, yq, yz):
+def f(t, y, yq):
     y1, y2 = y
     x1 = yq + y2
     x2 = y1 - yq

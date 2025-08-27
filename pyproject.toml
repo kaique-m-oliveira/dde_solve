@@ -1,52 +1,13 @@
-
-
-
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "DDE_solver"
-authors = [
-    {name = "Kaique Micael Moreira de Oliveira", email = "kaique_oliveira@usp.br"},
-]
-description = "Solver for DDE's"
-readme = "README.md"
-requires-python = ">=3"
-keywords = ["dde", "solver", "delay", "differential", "equations"]
-license = {text = "MIT License"}
-classifiers = [
-  # How mature is this project? Common values are
-  #   3 - Alpha
-  #   4 - Beta
-  #   5 - Production/Stable
-  "Development Status :: 3 - Alpha",
+name = "dde_solve"
+version = "0.1"
+description = "DDE solver"
+authors = [{name = "Kaique Oliveira"}]
+license = "MIT"
 
-  # Indicate who your project is intended for
-  "Intended Audience :: Developers",
-  "Topic :: Software Development :: Build Tools",
-
-  # Pick your license as you wish (see also "license" above)
-  "License :: OSI Approved :: MIT License",
-
-  # Specify the Python versions you support here.
-  "Programming Language :: Python :: 3",
-]
-dependencies = [
-    "sympy",
-    "scipy",
-    "numpy",
-    "matplotlib",
-]
-dynamic = ["version"]
-
-#[project.optional-dependencies]
-#pdf = ["ReportLab>=1.2", "RXP"]
-#rest = ["docutils>=0.3", "pack ==1.1, ==1.3"]
-
-[project.scripts]
-my-script = "DDE_solver.module:function"
-
-# ... other project metadata fields as listed in:
-#     https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
-
+[tool.setuptools]
+packages = ["DDE_solver"]

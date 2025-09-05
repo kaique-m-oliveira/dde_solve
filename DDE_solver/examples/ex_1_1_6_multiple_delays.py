@@ -50,7 +50,7 @@ def real_sol(t):
         return np.nan
 
 
-t_span = [0, 5]
+t_span = [0, 10]
 
 d_f = [0, lambda t, y, x: 5, lambda t, y, x: 1]
 

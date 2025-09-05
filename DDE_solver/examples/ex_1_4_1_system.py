@@ -18,11 +18,13 @@ def f(t, y, yq):
     yq1, yq2 = yq
     x1 = yq1 + y2
     x2 = y1 - yq1
+    # return np.array([x1, x2])
     return np.array([x1, x2])
 
 
 def phi(t):
-    return np.array([np.exp(t), 1 - 1/np.e])
+    # return np.array([np.exp(t), 1 - 1/np.e])
+    return [np.exp(t), 1 - 1/np.e]
 
 
 def alpha(t, y):

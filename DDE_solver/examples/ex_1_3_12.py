@@ -46,7 +46,7 @@ solver.etas_t.append(lambda t: 0)
 solver.solve_dde()
 tt = np.linspace(t_span[0], t_span[1], 100)
 realsol = np.array([real_sol(t) for t in tt])
-sol = np.array([solver.eta(i) for i in tt])
+sol = np.array([solver.solution(i) for i in tt])
 # for i in range(len(tt)):
 #     print(tt[i], realsol[i] - sol[i])
 print("max", max(abs(sol - realsol)))

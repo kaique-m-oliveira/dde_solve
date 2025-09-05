@@ -1,6 +1,6 @@
 import time
 import numbers
-from bisect import bisect_right
+from bisect import bisect_left
 from dataclasses import dataclass, field
 import random
 import matplotlib.pyplot as plt
@@ -60,17 +60,17 @@ def validade_arguments(f, alpha, phi, t_span, d_f, d_alpha, d_phi):
     alpha = vectorize_func(alpha)
     phi = vectorize_func(phi)
 
-    if (d_f is not None) and (d_alpha is not None) and (d_phi is not None):
+    # if (d_f is not None) and (d_alpha is not None) and (d_phi is not None):
+    #
+    #     df = [vectorize_func(func) for func in d_f]
+    #     d_alpha = [vectorize_func(func) for func in d_alpha]
+    #     d_phi = vectorize_func(d_phi)
+    #     return ndim, ndelays, f, alpha, phi, t_span, d_f, d_alpha, d_phi
 
-        df = [vectorize_func(func) for func in d_f]
-        d_alpha = [vectorize_func(func) for func in d_alpha]
-        d_phi = vectorize_func(d_phi)
-        return ndim, ndelays, f, alpha, phi, t_span, d_f, d_alpha, d_phi
-
-    d_f = [None, None, None]
-    d_alpha = [None, None]
-    d_phi = [None, None]
-    return ndim, ndelays, f, alpha, phi, t_span, d_f, d_alpha, d_phi
+    # d_f = [None, None, None]
+    # d_alpha = [None, None]
+    # d_phi = [None, None]
+    return ndim, ndelays, f, alpha, phi, t_span  # , d_f, d_alpha, d_phi
 
 
 def real_sol(t):
@@ -126,7 +126,12 @@ class OneStep:
                 if ti <= self.t[0]:
                     results.append(self.solution.eta(ti))
                 else:
-                    results.append(self._hat_eta_0(ti))
+                    if self.new_eta[1] is not None:
+                        results.append(self.new_eta[1](ti))
+                    elif self.new_eta[0] is not None:
+                        results.append(self.new_eta[0](ti))
+                    else:
+                        results.append(self._hat_eta_0(ti))
             return np.squeeze(results)
         return eval
 
@@ -196,7 +201,7 @@ class OneStep:
         tn, h, yn = self.t[0], self.h, self.y[0]
 
         print('___________________________RK4________________________________')
-        print(f'tn = {tn}, h = {h}, yn = {yn} real_sol {real_sol(tn)}')
+        print(f'tn = {tn}, h = {h}, yn = {yn}, yn.shape {yn.shape} ')
 
         f, eta, alpha = self.problem.f, self.eta, self.problem.alpha
         c = self.params.c
@@ -207,11 +212,13 @@ class OneStep:
         for i in range(1, 4):
             ti = tn + c[i] * h
             yi = yn + c[i] * h * self.K[i - 1]
+
             if np.all(alpha(ti, yi) <= np.full(self.ndelays, tn)):
-                def real_alpha(t, y): return [t-1,  t-2, t-3, t-4]
                 alpha_i = alpha(ti, yi)
+                print(f'shape alpha_i {alpha_i.shape}')
                 real_alpha_i = alpha(ti, yi)
                 Y_tilde = eta(alpha_i)
+                print(f'shape Y_tilde {Y_tilde.shape}')
                 self.K[i] = f(ti, yi, Y_tilde)
             else:  # this would be the overlapping case
                 self.overlap = True
@@ -223,9 +230,15 @@ class OneStep:
         self.y[1] = yn + h * (self.K[0] / 6 + self.K[1] /
                               3 + self.K[2] / 3 + self.K[3] / 6)
 
-        print(
-            f'tn+1 = {tn + h}, yn+1 = {self.y[1]} real_sol {real_sol(tn + h)}')
-        print(f' ERROR {self.y[1] - real_sol(tn + h)}')
+        print(f'tn = {tn}, h = {
+              h}, yn+1 = {self.y[1]}, yn.shape {self.y[1].shape} ')
+        print(f'shape of K {self.K[0].shape}  {self.K[1].shape}  {
+              self.K[2].shape} {self.K[3].shape}')
+        print('__________________________________________________________')
+        # input('RK4 stuff')
+        # print(
+        #     f'tn+1 = {tn + h}, yn+1 = {self.y[1]} real_sol {real_sol(tn + h)}')
+        # print(f' ERROR {self.y[1] - real_sol(tn + h)}')
         return True
 
     def _simplified_Newton(self):
@@ -444,15 +457,16 @@ class OneStep:
 
     def error_est_method(self):
         # Lobatto formula now for pi1 and pi2
-        f, eta, alpha = self.problem.f, self.eta, self.problem.alpha
+        f, alpha = self.problem.f, self.problem.alpha
+        eeta = self.eeta
 
         pi1, pi2 = (5 - np.sqrt(5)) / 10, (5 + np.sqrt(5)) / 10
         t_pi1, t_pi2 = self.t[0] + pi1 * self.h, self.t[0] + pi2 * self.h
         tt1 = self.new_eta[1](t_pi1)
         t1 = alpha(t_pi1, tt1)
-        Y_tilde6 = eta(t1)
+        Y_tilde6 = eeta(t1)
         self.K[6] = f(t_pi1, self.new_eta[1](t_pi1), Y_tilde6)
-        Y_tilde7 = eta(alpha(t_pi2, self.new_eta[1](t_pi2)))
+        Y_tilde7 = eeta(alpha(t_pi2, self.new_eta[1](t_pi2)))
         self.K[7] = f(t_pi2, self.new_eta[1](t_pi2), Y_tilde7)
         self.y_tilde = self.y[0] + self.h * (
             (1/12)*self.K[0] + (5/12) * self.K[6] +
@@ -552,8 +566,8 @@ class OneStep:
         success = self.try_step_CRK()
         time2 = time.time()
         calls2 = self.solution.eta_calls
-        print('calls', calls2 - calls1)
-        print('times', time2 - time1)
+        # print('calls', calls2 - calls1)
+        # print('times', time2 - time1)
         if success:
             return True, self
         else:
@@ -563,9 +577,9 @@ class OneStep:
                 disc_found = self.is_there_disc()
                 if disc_found:
                     new_h = self.disc - self.t[0]
-                    print('new_h', new_h, 'type', type(new_h))
-                    print('self.h', self.h)
-                    print('self.h_next ', self.h_next)
+                    # print('new_h', new_h, 'type', type(new_h))
+                    # print('self.h', self.h)
+                    # print('self.h_next ', self.h_next)
                     if new_h < self.h:
                         print('disc_found', disc_found)
                         if new_h not in self.solution.discs:
@@ -576,8 +590,8 @@ class OneStep:
                 success = self.try_step_CRK()
                 calls2 = self.solution.eta_calls
                 time2 = time.time()
-                print('calls', calls2 - calls1)
-                print('time', time2 - time1)
+                # print('calls', calls2 - calls1)
+                # print('time', time2 - time1)
                 if success:
                     return True, self
 
@@ -601,9 +615,67 @@ class OneStep:
 class Problem:
     def __init__(self, f, alpha, phi, t_span, d_f=None, d_alpha=None, d_phi=None):
         self.t_span = np.array(t_span)
-        self.ndim, self.ndelays, self.f, self.alpha, self.phi, self.t_span, self.d_f, self.d_alpha_old, self.d_phi = validade_arguments(
+        self.ndim, self.ndelays, self.f, self.alpha, self.phi, self.t_span = validade_arguments(
             f, alpha, phi, t_span, d_f, d_alpha, d_phi)
         self.d_alpha = self.get_d_alpha()
+        self.d_f = self.get_d_f()
+        self.d_phi = self.get_d_phi()
+
+    def get_d_phi(self):
+        phi = self.phi
+        h = 1e-15
+
+        def d_phi(t, y):
+            return (phi(t, y) - (t - h, y))/h
+
+        return d_phi
+
+    def get_d_f(self):
+        alpha = self.alpha
+        f = self.f
+        ndim = self.ndim
+        ndelays = self.ndelays
+        d_alpha = [None for i in range(ndelays)]
+        h = 1e-15
+
+        def unit_vec(j): return np.array(
+            [1 if i == j else 0 for i in range(ndim)])
+
+        def f_t(t, y, x):
+            return (f(t, y, x) - f(t - h, y, x))/h
+
+        def f_y(t, y, x):
+            val = np.array([None for i in range(ndim)])
+            for j in range(ndim):
+                val[j] = (f(t, y, x) - f(t, y - h*unit_vec(j), x))/h
+            return np.atleast_1d(val)
+
+        def x_add(x, h, j):
+            print('x', x)
+            print('j', j)
+            x[j] -= h
+            return x
+
+        if ndelays == 1:
+            def f_x(t, y, x):
+                delays = np.array([None for i in range(ndelays)])
+                for i in range(ndelays):
+                    val = np.array([None for i in range(ndim)])
+                    for j in range(ndim):
+                        val[j] = (f(t, y, x) - f(t, y, x - h*unit_vec(j)))/h
+                    delays[i] = np.atleast_1d(val)
+                return np.squeeze(delays)
+        else:
+            def f_x(t, y, x):
+                delays = np.array([None for i in range(ndelays)])
+                for i in range(ndelays):
+                    val = np.array([None for i in range(ndim)])
+                    for j in range(ndim):
+                        val[j] = (f(t, y, x) - f(t, y, x_add(x, h, j)))/h
+                    delays[i] = np.atleast_1d(val)
+                return np.squeeze(delays)
+
+        return f_t, f_y, f_x
 
     def get_d_alpha(self):
         alpha = self.alpha
@@ -612,15 +684,15 @@ class Problem:
         h = 1e-15
 
         def unit_vec(j): return np.array(
-            [1 if i == j else 0 for i in range(5)])
+            [1 if i == j else 0 for i in range(ndim)])
 
         def alpha_t(t, y):
-            return (alpha(t, y) - alpha(t - h, y))/(2*h)
+            return (alpha(t, y) - alpha(t - h, y))/h
 
         def alpha_y(t, y):
             val = np.array([None for i in range(ndim)])
             for j in range(ndim):
-                val[j] = (alpha(t, y) - alpha(t, y - unit_vec(j)))/(2*h)
+                val[j] = (alpha(t, y) - alpha(t, y - h*unit_vec(j)))/h
             return np.atleast_1d(val)
 
         return alpha_t, alpha_y
@@ -637,6 +709,44 @@ class Solution:
         self.eta_calls = 0
         self.eta_t_calls = 0
         self.t_next = None
+
+    @property
+    def eta(self):
+        def eval(t):
+
+            self.eta_calls += 1
+            t = np.atleast_1d(t)  # accept scalar or array
+
+            results = []
+            for ti in t:
+                idx = bisect_left(self.t, ti)
+                if ti <= self.t[-1]:
+                    results.append(self.etas[idx](ti))
+                else:
+                    raise ValueError(
+                        f"eta isn't defined in {ti}, only on {self.t[0], self.t[-1]}")
+
+            return np.squeeze(results)
+        return eval
+
+    @property
+    def eta_t(self):
+        def eval(t, epsilon=1e-15):
+
+            self.eta_calls += 1
+            t = np.atleast_1d(t)  # accept scalar or array
+
+            results = []
+            for ti in t:
+                idx = bisect_left(self.t, ti)
+                if ti <= self.t[-1]:
+                    results.append(self.etas_t[idx](ti))
+                else:
+                    raise ValueError(
+                        f"eta_t isn't defined in {ti}, only on {self.t[0], self.t[-1]}")
+
+            return np.squeeze(results)
+        return eval
 
     def update(self, onestep):
         success, step = onestep
@@ -661,52 +771,6 @@ class Solution:
             raise ValueError("Failed")
             return "Failed"
 
-    @property
-    def eta(self):
-        def eval(t):
-
-            self.eta_calls += 1
-            t = np.atleast_1d(t)  # accept scalar or array
-
-            results = []
-            for ti in t:
-                idx = bisect_right(self.t, ti)
-
-                if idx == 0:
-                    results.append(self.etas[0](ti))
-                elif idx >= len(self.etas):
-                    results.append(self.etas[-1](ti))
-                elif self.t[idx - 1] <= ti <= self.t[idx]:
-                    results.append(self.etas[idx](ti))
-                else:
-                    results.append(self.etas[max(0, idx - 1)](ti))
-
-            return np.squeeze(results)
-        return eval
-
-    @property
-    def eta_t(self):
-        def eval(t, epsilon=1e-15):
-
-            self.eta_calls += 1
-            t = np.atleast_1d(t)  # accept scalar or array
-
-            results = []
-            for ti in t:
-                idx = bisect_right(self.t, ti)
-
-                if idx == 0:
-                    results.append(self.etas_t[0](ti))
-                elif idx >= len(self.etas_t):
-                    results.append(self.etas_t[-1](ti))
-                elif self.t[idx - 1] <= ti <= self.t[idx]:
-                    results.append(self.etas_t[idx](ti))
-                else:
-                    results.append(self.etas_t[max(0, idx - 1)](ti))
-
-            return np.squeeze(results)
-        return eval
-
 
 def solve_dde(f, alpha, phi, t_span, d_f=None, d_alpha=None, d_phi=None):
     problem = Problem(f, alpha, phi, t_span, d_f, d_alpha, d_phi)
@@ -730,7 +794,7 @@ def solve_dde(f, alpha, phi, t_span, d_f=None, d_alpha=None, d_phi=None):
         h = min(h, tf - t)
         onestep = OneStep(problem, solution, h)
         status = solution.update(onestep.one_step_CRK())
-        print(f'eta({t}) {solution.eta(t)}')
+        # print(f'eta({t}) {solution.eta(t)}')
         if status != None:
             raise ValueError(status)
         h = onestep.h_next

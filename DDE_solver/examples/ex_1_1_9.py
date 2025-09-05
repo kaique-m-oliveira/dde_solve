@@ -51,7 +51,7 @@ solver = solve_dde(f, alpha, phi, t_span, d_f=d_f,
 
 tt = np.linspace(t_span[0], t_span[1], 100)
 realsol = np.array([real_sol(t) for t in tt])
-sol = np.array([solver.eta(i) for i in tt])
+sol = np.array([solver.solution(i) for i in tt])
 # for i in range(len(tt)):
 #     print(tt[i], realsol[i] - sol[i])
 print('realsol', realsol)

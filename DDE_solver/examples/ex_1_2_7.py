@@ -69,14 +69,14 @@ solution = np.array([np.squeeze(real_sol(t)) for t in solver.t])
 # input(f'realsol {realsol} type {type(realsol)} shape {realsol.shape}')
 # input(f'sol {sol} type {type(sol)} shape {sol.shape}')
 # input(f'solver.y {solver.y} type {type(solver.y)}')
-print('solution', solution)
-print('shape solver.y', solver.y)
+# print('solution', solution)
+# print('shape solver.y', solver.y)
+#
+# print(f"diferença em pontos aleatórios: {max_error}")
+# print('diferença na malha:', np.max(y - solution))
 
-print(f"diferença em pontos aleatórios: {max_error}")
-print('diferença na malha:', np.max(y - solution))
 
-
-plt.plot(tt, realsol, color="red", label='real solution')
-plt.plot(tt, sol, color="blue", label='aproxx')
-plt.legend()
-plt.show()
+# plt.plot(tt, realsol, color="red", label='real solution')
+# plt.plot(tt, sol, color="blue", label='aproxx')
+# plt.legend()
+# plt.show()

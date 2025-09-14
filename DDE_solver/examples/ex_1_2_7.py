@@ -76,7 +76,7 @@ solution = np.array([np.squeeze(real_sol(t)) for t in solver.t])
 # print('diferença na malha:', np.max(y - solution))
 
 
-# plt.plot(tt, realsol, color="red", label='real solution')
-# plt.plot(tt, sol, color="blue", label='aproxx')
-# plt.legend()
-# plt.show()
+plt.plot(tt, realsol, color="red", label='real solution')
+plt.plot(tt, sol, color="blue", label='aproxx')
+plt.legend()
+plt.show()

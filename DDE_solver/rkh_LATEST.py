@@ -60,38 +60,23 @@ def validade_arguments(f, alpha, phi, t_span, d_f, d_alpha, d_phi):
     alpha = vectorize_func(alpha)
     phi = vectorize_func(phi)
 
-    # if (d_f is not None) and (d_alpha is not None) and (d_phi is not None):
-    #
-    #     df = [vectorize_func(func) for func in d_f]
-    #     d_alpha = [vectorize_func(func) for func in d_alpha]
-    #     d_phi = vectorize_func(d_phi)
-    #     return ndim, ndelays, f, alpha, phi, t_span, d_f, d_alpha, d_phi
-
-    # d_f = [None, None, None]
-    # d_alpha = [None, None]
-    # d_phi = [None, None]
-    return ndim, ndelays, f, alpha, phi, t_span  # , d_f, d_alpha, d_phi
+    return ndim, ndelays, f, alpha, phi, t_span
 
 
-def real_sol(t):
+class RungeKutta:
+    def __init__(self, problem, solution, h):
 
-    if 0 <= t <= 1:
-        return -t
-    elif 1 < t <= 2:
-        return (1/2) * t**2 - t - (1/2)
-    elif 2 < t <= 3:
-        return (-1/6) * t**3 + (1/2) * t**2 - (7/6)
-    elif 3 < t <= 4:
-        return (1/24) * t**4 - (1/6) * t**3 - (1/4) * t**2 + t - (19/24)
-    elif 4 < t <= 5:
-        return (-1/120) * t**5 + (1/6) * t**4 - (5/3) * t**3 + (109/12) * t**2 - 24 * t + (2689/120)
-    else:
-        return np.nan
+        A: np.ndarray = NotImplemented
+        b: np.ndarray = NotImplemented
+        b_err: np.ndarray = NotImplemented
+        c: np.ndarray = NotImplemented
+        D: np.ndarray = NotImplemented
+        D_err: np.ndarray = NotImplemented
+        D_ovl: np.ndarray = NotImplemented
+        order: dict = NotImplemented
+        n_stages: dict = NotImplemented
 
-
-class OneStep:
-
-    def __init__(self, problem, solution, h, n_stages=8):
+        total_stages = self.A.shape[0]
         tn = solution.t[-1]
         yn = solution.y[-1]
         self.problem = problem
@@ -102,7 +87,7 @@ class OneStep:
         self.y = [yn, 1]  # we don't have yn_plus yet
         self.n = problem.ndim
         self.y_tilde = None
-        self.K = np.zeros((n_stages, self.n), dtype=float)
+        self.K = np.zeros((total_stages, self.n), dtype=float)
         self.eta = solution.eta
         self.new_eta = [None, None]
         self.new_eta_t = [None, None]
@@ -115,6 +100,9 @@ class OneStep:
         self.ndim = problem.ndim
         self.ndelays = problem.ndelays
         self.fails = 0
+        self.stages_calculated = 0
+        self.store_times = []
+        self.number_of_calls = 0
 
     @property
     def eeta(self):
@@ -200,18 +188,15 @@ class OneStep:
     def one_step_RK4(self):
         tn, h, yn = self.t[0], self.h, self.y[0]
 
-        print('___________________________RK4________________________________')
-        print(f'tn = {tn}, h = {h}, yn = {yn}, yn.shape {yn.shape} ')
-
         f, eta, alpha = self.problem.f, self.eta, self.problem.alpha
-        c = self.params.c
-        realf = np.zeros(4)
+        n_stages = self.n_stages["discrete_method"]
+        c = self.c[:n_stages]
+        A = self.A[:n_stages, :n_stages]
         self.K[0] = f(tn, yn, eta(alpha(tn, yn)))
 
-        # WARN: this one is mine
-        for i in range(1, 4):
+        for i in range(1, n_stages):
             ti = tn + c[i] * h
-            yi = yn + c[i] * h * self.K[i - 1]
+            yi = yn + h * np.dot(A[i][0:i], self.K[0: i])
 
             if np.all(alpha(ti, yi) <= np.full(self.ndelays, tn)):
                 alpha_i = alpha(ti, yi)
@@ -227,8 +212,8 @@ class OneStep:
                     return False
                 break
 
-        self.y[1] = yn + h * (self.K[0] / 6 + self.K[1] /
-                              3 + self.K[2] / 3 + self.K[3] / 6)
+        self.y[1] = yn + h * np.dot(self.b, self.K[0:n_stages])
+        self.stages_calculated = n_stages
 
         print(f'tn = {tn}, h = {
               h}, yn+1 = {self.y[1]}, yn.shape {self.y[1].shape} ')
@@ -283,6 +268,7 @@ class OneStep:
             for i in range(4):
                 ti = tn + c[i] * h
                 yi = yn + c[i] * h * K[i-1]
+                # Y_tilde = self.eeta(alpha(ti, yi))
                 Y_tilde = self.eeta(alpha(ti, yi))
                 F[i] = K[i] - f(ti, yi, Y_tilde)
             return F
@@ -296,7 +282,7 @@ class OneStep:
 
         max_iter, iter = 30, 0
         diff_old, diff_new = 4, 3  # initializing stuff
-        while abs((norm(diff_new)**2)/(norm(diff_old) - norm(diff_new))) >= rho * TOL and iter <= max_iter:
+        while abs((np.linalg.norm(diff_new)**2)/(np.linalg.norm(diff_old) - np.linalg.norm(diff_new))) >= rho * TOL and iter <= max_iter:
             # Método de Newton usando recomposição LU
             diff_old = diff_new
 
@@ -309,169 +295,100 @@ class OneStep:
         return True
 
     def build_eta_0(self):
-        tn, h = self.t[0], self.h
         f, alpha = self.problem.f,  self.problem.alpha
-        yn_plus = self.y[1]
-        self.K[4] = f(tn + h, yn_plus, self.eeta(alpha(tn + h, yn_plus)))
+        if self.n_stages["continuous_err_est_method"] - self.stages_calculated <= 0:
+            return
+        else:
+            for i in range(self.stages_calculated, self.n_stages["continuous_err_est_method"]):
+                ti = self.t[0] + self.c[i] * self.h
+                yi = self.y[0] + self.h * np.dot(self.A[i][0:i], self.K[0: i])
+                alpha_i = alpha(ti, yi)
+                Y_tilde = self.eeta(alpha_i)
+                self.K[i] = f(ti, yi, Y_tilde)
+            self.stages_calculated = self.n_stages["continuous_err_est_method"]
 
     def _eta_0(self, theta):
         tn, h, yn = self.t[0], self.h, self.y[0]
         theta = (theta - tn) / h
-        yn_plus = self.y[1]
-        t2, t3 = theta**2, theta**3
 
-        d1 = 2 * t3 - 3 * t2 + 1
-        d2 = -2 * t3 + 3 * t2
-        d3 = t3 - 2 * t2 + theta
-        d4 = t3 - t2
-        # if np.all(alpha(tn + h, yn_plus) <= np.full(self.ndelays, tn)):
-        #     eeta = eta
-        # else:
-        #     eeta = self._hat_eta_0
-        # self.K[4] = f(tn + h, yn_plus, self.eeta(alpha(tn + h, yn_plus)))
-        eta0 = d1 * yn + d2 * yn_plus + d3 * h * self.K[0] + d4 * h * self.K[4]
+        pol_order = self.D_err.shape[1]
+        theta = theta ** np.arange(pol_order)
+        K = self.K[0:self.n_stages["continuous_err_est_method"]]
+        eta0 = yn + h * (self.D_err @ theta).dot(K)
+
         return eta0
 
     def _hat_eta_0(self, theta):
+
         tn, h, yn = self.t[0], self.h, self.y[0]
         theta = (theta - tn) / h
-        f, alpha = self.problem.f, self.problem.alpha
-        yn_plus = self.y[1]
-        t2, t3 = theta**2, theta**3
+        pol_order = self.D_ovl.shape[1]
+        theta = theta ** np.arange(pol_order)
+        K = self.K[0:self.n_stages["continuous_ovl_method"]]
+        D = self.D_ovl @ theta
+        eta0 = yn + h * np.dot(D, K)
 
-        d1 = ((2/3) * t2 - (3/2) * theta + 1) * theta
-        d2 = (-(2/3) * theta + 1) * t2
-        d3 = (-(2/3) * theta + 1) * t2
-        d4 = ((2/3) * theta - 1/2) * t2
-        eta0 = yn + h * (d1 * self.K[0] + d2 *
-                         self.K[1] + d3 * self.K[2] + d4 * self.K[3])
         return eta0
 
     def _hat_eta_0_t(self, theta):
         tn, h, yn = self.t[0], self.h, self.y[0]
         theta = (theta - tn) / h
-        f, alpha = self.problem.f, self.problem.alpha
-        yn_plus = self.y[1]
-
-        d1 = 1 - 3 * theta + 2 * theta ** 2
-        d2 = -2 * (-1 + theta) * theta
-        d3 = d2
-        d4 = theta * (-1 + 2 * theta)
-        eta0 = h * (d1 * self.K[0] + d2 *
-                    self.K[1] + d3 * self.K[2] + d4 * self.K[3])
+        pol_order = self.D_ovl.shape[1]
+        theta = np.array([n*theta**(n-1) for n in range(pol_order)])
+        K = self.K[0:self.n_stages["continuous_ovl_method"]]
+        D = self.D_ovl @ theta
+        eta0 = yn + h * np.dot(D, K)
         return eta0
 
     def build_eta_1(self):
-        theta1 = self.params.theta1
-        tn, h = self.t[0], self.h
-        f, alpha = self.problem.f, self.problem.alpha
-        tt = tn + theta1 * h
-        # yy = self.new_eta[0](tt)
-        yy = self._eta_0(tt)
-        t_alpha = alpha(tt, yy)
-        Y_tilde5 = self.eeta(t_alpha)
-        self.K[5] = f(tt, yy, Y_tilde5)
+
+        f, alpha = self.problem.f,  self.problem.alpha
+        if self.n_stages["continuous_method"] - self.stages_calculated <= 0:
+            return
+        else:
+            for i in range(self.stages_calculated, self.n_stages["continuous_method"]):
+                ti = self.t[0] + self.c[i] * self.h
+                yi = self.y[0] + self.h * np.dot(self.A[i][0:i], self.K[0: i])
+                alpha_i = alpha(ti, yi)
+                Y_tilde = self.eeta(alpha_i)
+                self.K[i] = f(ti, yi, Y_tilde)
+            self.stages_calculated = self.n_stages["continuous_method"]
 
     def _eta_1(self, theta):
-        theta1 = self.params.theta1
-        theta = (theta - self.t[0]) / self.h
-        t2, t3 = theta * theta, theta * theta * theta
-        nom1, den1 = (theta - 1) ** 2, 2 * theta1 - 1
-        yn, yn_plus = self.y[0], self.y[1]
-        h = self.h
-        tn, yn = self.t[0], self.y[0]
-        f, eta, alpha = self.problem.f, self.eta, self.problem.alpha
-        d1 = nom1 * (-3 * t2 + 2 * den1 * theta + den1) / den1
-        d2 = t2 * (3 * t2 - 4 * (theta1 + 1) * theta + 6 * theta1) / den1
-        d3 = (
-            theta
-            * nom1
-            * ((1 - 3 * theta1) * theta + 2 * theta1 * den1)
-            / (2 * theta1 * den1)
-        )
-        d4 = (
-            t2
-            * (theta - 1)
-            * ((2 - 3 * theta1) * theta + theta1 * (4 * theta1 - 3))
-            / (2 * (theta1 - 1) * den1)
-        )
-        d5 = t2 * nom1 / (2 * theta1 * den1 * (theta1 - 1))
-        # tt = tn + theta1 * h
-        # yy = self.new_eta[0](tt)
-        # t_alpha = alpha(tt, yy)
-        # if np.all(t_alpha <= np.full(self.ndelays, tn)):
-        #     eeta = eta
-        # else:
-        #     eeta = self.eta[0]
-        # Y_tilde5 = self.eeta(t_alpha)
-        # self.K[5] = f(tt, yy, Y_tilde5)
-        return (
-            d1 * yn
-            + d2 * yn_plus
-            + d3 * h * self.K[0]
-            + d4 * h * self.K[4]
-            + d5 * h * self.K[5]
-        )
+        tn, h, yn = self.t[0], self.h, self.y[0]
+        theta = (theta - tn) / h
 
-    def build_eta_1_t(self):
-        theta1 = self.params.theta1
-        tn, h = self.t[0], self.h
-        f, eta, alpha = self.problem.f, self.eta, self.problem.alpha
+        pol_order = self.D.shape[1]
+        theta = theta ** np.arange(pol_order)
+        K = self.K[0:self.n_stages["continuous_method"]]
+        eta0 = yn + h * (self.D @ theta).dot(K)
 
-        tt = tn + theta1 * h
-        alpha_tt = alpha(tt, self.new_eta[1](tt))
-        Y_tilde5 = eta(alpha_tt)
-        self.K[5] = f(tt, self.new_eta[1](tt), Y_tilde5)
+        return eta0
 
     def _eta_1_t(self, theta):
-        theta1 = self.params.theta1
-        theta = (theta - self.t[0]) / self.h
-        t2, t3 = theta * theta, theta * theta * theta
-        nom1, den1 = (theta - 1) ** 2, 2 * theta1 - 1
-        yn, yn_plus = self.y[0], self.y[1]
-        h = self.h
-        tn, yn = self.t[0], self.y[0]
-        f, eta, alpha = self.problem.f, self.eta, self.problem.alpha
-        x, a = theta, theta1
-
-        d_d1 = (12*(a - x)*(-1 + x)*x)/(-1 + 2 * a)
-        d_d2 = -(12 * (a - x)*(-1 + x) * x)/(-1 + 2 * a)
-        d_d3 = ((-1 + x)*(a - 6 * a * x ** 2 + x * (-1 + 2 * x) +
-                (a ** 2) * (-2 + 6*x)))/(a * (-1 + 2 * a))
-        d_d4 = (x*(x*(-3 + 4 * x) + a ** 2) * (-4 + 6 * x) +
-                a*(3 - 6 * (x ** 2)))/((-1 + a)*(-1 + 2 * a))
-        d_d5 = (x - 3 * (x ** 2) + 2 * (x ** 3)) / \
-            (a - 3 * (a ** 2) + 2 * (a ** 3))
-
-        tt = tn + theta1 * h
-        alpha_tt = alpha(tt, self.new_eta[1](tt))
-        Y_tilde5 = eta(alpha_tt)
-        self.K[5] = f(tt, self.new_eta[0](tt), Y_tilde5)
-        return (
-            d_d1 * yn
-            + d_d2 * yn_plus
-            + d_d3 * h * self.K[0]
-            + d_d4 * h * self.K[4]
-            + d_d5 * h * self.K[5]
-        )
+        tn, h, yn = self.t[0], self.h, self.y[0]
+        theta = (theta - tn) / h
+        pol_order = self.D.shape[1]
+        theta = np.array([n*theta**(n-1) for n in range(pol_order)])
+        K = self.K[0:self.n_stages["continuous_method"]]
+        eta0 = yn + h * (self.D @ theta).dot(K)
+        return eta0
 
     def error_est_method(self):
-        # Lobatto formula now for pi1 and pi2
-        f, alpha = self.problem.f, self.problem.alpha
-        eeta = self.eeta
+        f, alpha = self.problem.f,  self.problem.alpha
+        if self.n_stages["discrete_err_est_method"] - self.stages_calculated <= 0:
+            return
+        else:
+            for i in range(self.stages_calculated, self.n_stages["discrete_err_est_method"]):
+                ti = self.t[0] + self.c[i] * self.h
+                yi = self.y[0] + self.h * np.dot(self.A[i][0:i], self.K[0: i])
+                alpha_i = alpha(ti, yi)
+                Y_tilde = self.eeta(alpha_i)
+                self.K[i] = f(ti, yi, Y_tilde)
+            self.stages_calculated = self.n_stages["discrete_err_est_method"]
 
-        pi1, pi2 = (5 - np.sqrt(5)) / 10, (5 + np.sqrt(5)) / 10
-        t_pi1, t_pi2 = self.t[0] + pi1 * self.h, self.t[0] + pi2 * self.h
-        tt1 = self.new_eta[1](t_pi1)
-        t1 = alpha(t_pi1, tt1)
-        Y_tilde6 = eeta(t1)
-        self.K[6] = f(t_pi1, self.new_eta[1](t_pi1), Y_tilde6)
-        Y_tilde7 = eeta(alpha(t_pi2, self.new_eta[1](t_pi2)))
-        self.K[7] = f(t_pi2, self.new_eta[1](t_pi2), Y_tilde7)
-        self.y_tilde = self.y[0] + self.h * (
-            (1/12)*self.K[0] + (5/12) * self.K[6] +
-            (5/12) * self.K[7] + (1/12) * self.K[4]
-        )
+        K = self.K[0:self.n_stages["discrete_err_est_method"]]
+        self.y_tilde = self.y[0] + self.h * (np.dot(self.b_err, K))
 
     def disc_local_error_satistied(self):
         self.disc_local_error = (
@@ -610,6 +527,59 @@ class OneStep:
                     return True, self
 
             return False, 0
+
+
+class RK4HHL(RungeKutta):
+    A = np.array([
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        [1/2, 0, 0, 0, 0, 0, 0, 0],
+        [0, 1/2, 0, 0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 0, 0, 0],
+        [1/6, 1/3, 1/3, 1/6, 0, 0, 0, 0],
+        [31/162, 7/81, 7/81, 7/162, -2/27, 0, 0, 0],
+        [(37 - np.sqrt(5))/300, (7 * (1 - np.sqrt(5)))/150, (7 * (1 - np.sqrt(5))) /
+         150, (7 * (1 - np.sqrt(5)))/300, (-1 + 2 * np.sqrt(5))/100, 27/100, 0, 0],
+        [(np.sqrt(5) + 37)/300, (7 * (1 + np.sqrt(5)))/150, (7 * (1 + np.sqrt(5))) /
+         150, (7 * (1 + np.sqrt(5)))/300, -(1 + 2 * np.sqrt(5))/100, 27/100, 0, 0]
+    ], dtype=np.float64)
+
+    b_err = np.array(
+        [1/12, 0, 0, 0, 1/12, 0, 5/12, 5/12], dtype=np.float64)
+
+    b = np.array([1/6, 1/3, 1/3, 1/6], dtype=np.float64)
+
+    c = np.array([0, 1/2, 1/2, 1, 1, 1/3, (5 - np.sqrt(5)) /
+                  10, (5 + np.sqrt(5))/10], dtype=np.float64)
+
+    D = np.array([
+        [0, 1, -3, 11/3, -3/2],
+        [0, 0, -2, 16/3, -3],
+        [0, 0, -2, 16/3, -3],
+        [0, 0, -1, 8/3, -3/2],
+        [0, 0, 5/4, -7/2, 9/4],
+        [0, 0, 27/4, -27/2, 27/4]
+    ], dtype=np.float64)
+
+    D_err = np.array([
+        [0, 1, -3/2, 2/3],
+        [0, 0, 1, -2/3],
+        [0, 0, 1, -2/3],
+        [0, 0, 1/2, -1/3],
+        [0, 0, -1, 1]
+    ], dtype=np.float64)
+
+    D_ovl = np.array([
+        [0, 1, -3/2, 2/3],
+        [0, 0, 1, -2/3],
+        [0, 0, 1, -2/3],
+        [0, 0, -1/2, 2/3]
+    ], dtype=np.float64)
+
+    order = {"discrete_method": 4, "discrete_err_est_method": 5,
+             "continuous_method": 4, "continuous_err_est_method": 3, "continuous_ovl_method": 3}
+
+    n_stages = {"discrete_method": 4, "discrete_err_est_method": 8,
+                "continuous_method": 6, "continuous_err_est_method": 5, "continuous_ovl_method": 4}
 
 
 class Problem:
@@ -755,11 +725,7 @@ class Solution:
 
         if success:  # Step accepted
             if (self.t[-1] + step.h != step.t[1]):
-                # print('sum', self.t[-1] + step.h, 't1', step.t[1])
-                print('[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[')
-                print('tn + h', self.t[-1] + step.h, 't1',  step.t[1])
-                print('values fucked')
-                print('[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[')
+                print('sum', self.t[-1] + step.h, 't1', step.t[1])
             self.t.append(step.t[0] + step.h)
             self.y.append(step.y[1])
             self.etas.append(step.new_eta[1])
@@ -783,21 +749,30 @@ def solve_dde(f, alpha, phi, t_span, d_f=None, d_alpha=None, d_phi=None):
     print("Initial h:", h)
     print("-" * 80)
 
-    first_step = OneStep(problem, solution, h)
+    first_step = RK4HHL(problem, solution, h)
     status = solution.update(first_step.first_step_CRK())
     if status != None:
         raise ValueError(status)
     h = first_step.h_next
     t = solution.t[-1]
 
+    times = []
+    calls = 0
     while t < tf:
         h = min(h, tf - t)
-        onestep = OneStep(problem, solution, h)
+        onestep = RK4HHL(problem, solution, h)
         status = solution.update(onestep.one_step_CRK())
+        calls += onestep.number_of_calls
+        # if onestep.store_times != []:
+        #     times.extend(onestep.store_times)
         # print(f'eta({t}) {solution.eta(t)}')
         if status != None:
             raise ValueError(status)
         h = onestep.h_next
         t = solution.t[-1]
 
+    # print('real calls', calls)
+    # print('total sum', sum(times))
+    # print('total accesses', len(times))
+    # print(f'final avg time {sum(times)/len(times)}')
     return solution

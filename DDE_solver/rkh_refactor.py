@@ -5,9 +5,93 @@ from dataclasses import dataclass, field
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.linalg import lu_factor, lu_solve, norm
 from scipy.optimize import root
 from scipy.integrate import solve_ivp
+
+
+def lu_factor(A):
+    """LU decomposition with partial pivoting, LAPACK-style.
+    Returns LU, piv such that P@A = L@U,
+    where LU stores L (unit diag, strictly lower part) and U (upper part).
+    """
+    A = A.copy().astype(float)
+    m = A.shape[0]
+    piv = np.arange(m)
+
+    for k in range(m - 1):
+        # pivot selection
+        idx = k + np.argmax(np.abs(A[k:m, k]))
+        if A[idx, k] == 0:
+            raise ValueError("Matrix is singular.")
+
+        # swap rows in A
+        if idx != k:
+            A[[k, idx], :] = A[[idx, k], :]
+            piv[[k, idx]] = piv[[idx, k]]
+
+        # elimination
+        for j in range(k + 1, m):
+            A[j, k] /= A[k, k]
+            A[j, k+1:m] -= A[j, k] * A[k, k+1:m]
+
+    return A, piv
+
+
+def lu_solve(lu_and_piv, b):
+    """Solve Ax=b given LU decomposition from lu_factor.
+    Args:
+        lu_and_piv: (LU, piv) from lu_factor
+        b: right-hand side (vector or matrix)
+    Returns:
+        x: solution of Ax=b
+    """
+    LU, piv = lu_and_piv
+    m = LU.shape[0]
+    b = np.array(b, dtype=float, copy=True)
+
+    b = b[piv]
+
+    # Forward substitution (solve L y = Pb)
+    for i in range(m):
+        b[i] -= np.dot(LU[i, :i], b[:i])
+
+    # Back substitution (solve U x = y)
+    for i in reversed(range(m)):
+        b[i] -= np.dot(LU[i, i+1:], b[i+1:])
+        b[i] /= LU[i, i]
+
+    return b
+
+
+def my_root(dz, t_guess, t_span, method='hybr', tol=np.finfo(float).eps, max_iter=50):
+    """
+    Simple bisection root finder for scalar dz(t) with a known sign change in [tn, tn+h].
+    Drop-in replacement for root(..., method='hybr').
+    """
+    a, b = t_span
+    fa, fb = dz(a), dz(b)
+
+    # Expand interval to [tn, tn+h] if needed
+    while fa * fb > 0:
+        a -= 1e-3
+        b += 1e-3
+        fa, fb = dz(a), dz(b)
+        if a < 0 or b > t_guess + 2.0:
+            # fail-safe
+            return type("RootResult", (), {"x": t_guess, "success": False})()
+
+    for _ in range(max_iter):
+        c = 0.5 * (a + b)
+        fc = dz(c)
+        if abs(fc) < tol:
+            return type("RootResult", (), {"x": c, "success": True})()
+        if fa * fc < 0:
+            b, fb = c, fc
+        else:
+            a, fa = c, fc
+
+    # last estimate
+    return type("RootResult", (), {"x": 0.5*(a+b), "success": abs(dz(0.5*(a+b))) < tol})()
 
 
 @dataclass
@@ -117,76 +201,62 @@ class RungeKutta:
     def eeta_t(self):
         def eval(t):
             t = np.atleast_1d(t)  # accept scalar or array
-            results = []
-            for ti in t:
-                if ti <= self.t[0]:
-                    results.append(self.solution.eta_t(ti))
+            results = np.empty((len(t), self.problem.ndim), dtype=float)
+            for i in range(len(t)):
+                if t[i] <= self.t[0]:
+                    results[i] = self.solution.eta_t(t[i])
                 else:
-                    results.append(self._hat_eta_0_t(ti))
+                    results[i] = self._hat_eta_0_t(t[i])
             return np.squeeze(results)
         return eval
 
     def is_there_disc(self):
-        tn, h, yn = self.t[0], self.h, self.y[0]
-        f, eta, alpha = self.problem.f, self.solution.etas[-1], self.problem.alpha
+        tn, h = self.t[0], self.h
+        eta, alpha = self.solution.etas[-1], self.problem.alpha
         discs = self.solution.discs
         hn = self.solution.t[-1] - self.solution.t[-2]
-        # FIX: maybe not work as well
+
         if hn <= 1e-15:
             return False
+
         theta = 1 + h/hn
 
         def d_zeta(t, disc):
-            return alpha(t, eta(t)) - np.full(self.ndelays, disc)
+            return alpha(t, eta(t)) - disc  # np.full(self.ndelays, disc)
 
-        disc = None
         for disc in discs:
-            is_delay = d_zeta(tn, disc) * d_zeta(tn + theta * h, disc) < 0
-            # input(f'is delay {is_delay}')
-            disc_position = d_zeta(tn, disc) * d_zeta(tn + theta * h, disc) < 0
-            if np.any(disc_position):
-                new_disc = self.get_disc(disc, disc_position)
+
+            sign_change = d_zeta(tn, disc) * d_zeta(tn + theta * h, disc) < 0
+            if np.any(sign_change):
+                new_disc = self.get_disc(disc, sign_change)
                 self.disc = new_disc
                 return True
         return False
 
     def get_disc(self, disc, disc_position):
-        rho, TOL = self.params.rho, self.params.TOL
         alpha = self.problem.alpha
         alpha_t, alpha_y = self.problem.d_alpha
-        eta, eta_t = self.solution.etas[-1], self.solution.etas_t[-1]
-        iter, max_iter = 0, 30
-        t = self.t[0] + self.h/2
+        eta = self.solution.etas[-1]
+        t_guess = self.t[0] + self.h/2
+        indices = np.where(disc_position)[0].tolist()
 
-        # def d_zeta(t, disc):
-        t_values = []
-        for index in np.where(disc_position)[0].tolist():
+        t_roots = []
+
+        for idx in indices:
+
             def d_zeta(t):
-                a = alpha(t, eta(t))[index]
-                b = disc
-                return a - b
+                return alpha(t, eta(t))[idx] - disc
 
-            # FIX: for now, let's use this
-            sol = root(d_zeta, t, method='hybr')
+            print('d_zeta(t_guess)', d_zeta(t_guess), 'shape', d_zeta(t_guess))
+            sol = my_root(d_zeta, t_guess, [
+                          self.t[0], self.t[0] + self.h], method='hybr')
+            sol1 = root(d_zeta, t_guess, method='hybr')
+            print('sol.x', sol.x)
+            print('sol.x', sol1.x)
+            input('see')
+            t_roots.append(sol.x)
 
-            # def d_zeta_t(t, disc):
-            #     print(f't {t}')
-            #     a = alpha_t(t, eta(t))[index]
-            #     print(f'a {a} shape {a.shape}')
-            #     b = alpha_y(t, eta(t))[index]
-            #     print(f'b {b} shape {b.shape}')
-            #     c = eta_t(t)
-            #     print(f'c {c} shape {c.shape}')
-            #     return a + b * c
-            # for i in range(max_iter):
-            #     val = abs(d_zeta(t, disc))
-            #     if np.any(val < rho*TOL):
-            #         break
-            #     a = -d_zeta(t, disc)
-            # t += -d_zeta(t, disc)/ d_zeta_t(t, disc)
-
-            t_values.append(sol.x)
-        return min(t_values)
+        return min(t_roots)
 
     def one_step_RK4(self):
         tn, h, yn = self.t[0], self.h, self.y[0]

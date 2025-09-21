@@ -22,9 +22,9 @@ def real_sol_t(t):
     if t <= 0:
         return -1
     if 0 <= t <= 1:
-        return 1 + 2*np.exp(t)
+        return 1 + (1/4) * np.exp(t)
     if 1 <= t <= 2:
-        return -1 + 2*np.exp(t) - 2*(t+2)*np.exp(t - 1)
+        return -1 + (1/4) * np.exp(t) + (5/4) * np.exp(t - 1) + (3/16) * t * np.exp(t - 1)
 
 
 def lu_factor(A):
@@ -282,6 +282,7 @@ class RungeKutta:
             sol1 = root(d_zeta, t_guess, method='hybr')
             # print('sol.x', sol.x)
             # print('sol.x', sol1.x)
+            # input('see')
             t_roots.append(sol.x)
 
         return min(t_roots)
@@ -307,13 +308,11 @@ class RungeKutta:
             if np.all(alpha(ti, yi) <= np.full(self.ndelays, tn)):
                 alpha_i = alpha(ti, yi)
                 Y_tilde = eta(alpha_i)
-                print('eta(alpha_i)', Y_tilde,
-                      'real_sol(alpha_i)', real_sol(alpha_i), 'diff', abs(Y_tilde - real_sol(alpha_i)))
                 if self.neutral:
                     beta_i = self.problem.beta(ti, yi)
                     Z_tilde = self.eta_t(alpha_i)
-                    print('---eta_t(alpha_i)', Z_tilde,
-                          'real_sol_t(alpha_i)', real_sol_t(alpha_i), 'diff', abs(Z_tilde - real_sol_t(alpha_i)))
+                    print('eta_t(alpha_i)', Z_tilde,
+                          'real_sol_t(alpha_i)', real_sol_t(alpha_i))
                     self.K[i] = f(ti, yi, Y_tilde, Z_tilde)
                 else:
                     self.K[i] = f(ti, yi, Y_tilde)
@@ -334,7 +333,7 @@ class RungeKutta:
                                                } diff={abs(self.y[1] - real_sol(tn + h))}')
 
         print('__________________________________________________________')
-        input('RK4 stuff')
+        # input('RK4 stuff')
         # print(
         #     f'tn+1 = {tn + h}, yn+1 = {self.y[1]} real_sol {real_sol(tn + h)}')
         # print(f' ERROR {self.y[1] - real_sol(tn + h)}')
@@ -550,6 +549,7 @@ class RungeKutta:
         K = self.K[0:self.n_stages["continuous_method"]]
         bs = (self.D @ theta).squeeze()
         eta0 = yn + h * bs @ K
+
         return eta0
 
     def _eta_1_t(self, theta):
@@ -561,35 +561,6 @@ class RungeKutta:
         bs = (self.D @ theta).squeeze()
         eta0 = bs @ K
         return eta0
-
-    # def _eta_1_t(self, t):
-    #     tn, h = self.t[0], self.h
-    #     theta = (t - tn) / h
-    #
-    #     # derivatives d_i'(theta) for theta1 = 1/3 (exact)
-    #     d1p = 36.0*theta**3 - 48.0*theta**2 + 12.0*theta
-    #     d2p = -36.0*theta**3 + 48.0*theta**2 - 12.0*theta
-    #     d3p = 3.0*theta**2 - 4.0*theta + 1.0
-    #     d4p = 9.0*theta**3 - 10.5*theta**2 + 2.5*theta
-    #     d5p = 27.0*theta**3 - 40.5*theta**2 + 13.5*theta
-    #
-    #     # sanity checks (fail early if user hasn't computed y_{n+1} or K stages)
-    #     assert h != 0.0, "step size h is zero"
-    #     assert len(self.y) > 1, "self.y[1] (y_{n+1}) missing"
-    #     # ensure K has at least 6 stages (indices 0..5)
-    #     assert self.K.shape[0] >= 6, f"K has {self.K.shape[0]} rows; need >= 6"
-    #
-    #     y_n = np.atleast_1d(self.y[0])
-    #     y_np1 = np.atleast_1d(self.y[1])
-    #     K1 = np.atleast_1d(self.K[0])   # K_{n+1}^1
-    #     K5 = np.atleast_1d(self.K[4])   # K_{n+1}^5
-    #     K6 = np.atleast_1d(self.K[5])   # K_{n+1}^6
-    #
-    #     # compute eta'(t)
-    #     term_y = (d1p * y_n + d2p * y_np1) / h   # shape (ndim,)
-    #     term_K = d3p * K1 + d4p * K5 + d5p * K6  # shape (ndim,)
-    #
-    #     return term_y + term_K
 
     def error_est_method(self):
         f, alpha = self.problem.f,  self.problem.alpha

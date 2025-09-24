@@ -28,7 +28,7 @@ def real_sol_t(t):
 
 
 epsilon = 0
-t_span = [1, 2]
+t_span = [0.1, 2]
 
 solver = solve_dde(f, alpha, phi, t_span, beta=alpha,
                    neutral=True, d_phi=phi_t)

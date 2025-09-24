@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import root
+# from scipy.optimize import root
 from scipy.integrate import solve_ivp
 
 
@@ -89,7 +89,7 @@ def lu_solve(lu_and_piv, b):
     return b
 
 
-def my_root(dz, t_guess, t_span, method='hybr', tol=np.finfo(float).eps, max_iter=50):
+def root(dz, t_guess, t_span, method='hybr', tol=np.finfo(float).eps, max_iter=50):
     """
     Simple bisection root finder for scalar dz(t) with a known sign change in [tn, tn+h].
     Drop-in replacement for root(..., method='hybr').
@@ -125,8 +125,8 @@ class CRKParameters:
     theta1: float = 1 / 3
     TOL: float = 1e-5
     rho: float = 0.9
-    omega_min: float = 0.5
-    omega_max: float = 1.2
+    omega_min: float = 0.2 #was 0.5
+    omega_max: float = 1.5 #between 1.5 and 5
 
 
 def vectorize_func(func):
@@ -174,7 +174,7 @@ def validade_arguments(f, alpha, phi, t_span, d_f=None, d_alpha=None, d_phi=None
 
 
 class RungeKutta:
-    def __init__(self, problem, solution, h, neutral=False):
+    def __init__(self, problem, solution, h, neutral=False, Atol = 1e-7, Rtol = 1e-7):
 
         A: np.ndarray = NotImplemented
         b: np.ndarray = NotImplemented
@@ -216,6 +216,8 @@ class RungeKutta:
         self.store_times = []
         self.number_of_calls = 0
         self.neutral = neutral
+        self.Atol = np.full(self.y[0].shape, Atol)
+        self.Rtol = np.full(self.y[0].shape, Rtol)
 
     @property
     def eeta(self):
@@ -321,10 +323,9 @@ class RungeKutta:
             def d_zeta(t):
                 return delay(t, eta(t))[idx] - disc
 
-            print('d_zeta(t_guess)', d_zeta(t_guess), 'shape', d_zeta(t_guess))
-            sol = my_root(d_zeta, t_guess, [
-                          self.t[0], self.t[0] + self.h], method='hybr')
-            sol1 = root(d_zeta, t_guess, method='hybr')
+            # print('d_zeta(t_guess)', d_zeta(t_guess), 'shape', d_zeta(t_guess))
+            sol = root(d_zeta, t_guess, [self.t[0], self.t[0] + self.h], method='hybr')
+            # sol1 = root(d_zeta, t_guess, method='hybr')
             # print('sol.x', sol.x)
             # print('sol.x', sol1.x)
             t_roots.append(sol.x)
@@ -375,9 +376,9 @@ class RungeKutta:
         self.y[1] = yn + h * (self.b @ self.K[0:n_stages])
         self.stages_calculated = n_stages
 
-        print(f'tn = {tn}, h = {
-              h}, yn+1 = {self.y[1]}, yn.shape {self.y[1].shape} ')
-        # print('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')
+        # print(f'tn = {tn}, h = {
+        #       h}, yn+1 = {self.y[1]}, yn.shape {self.y[1].shape} ')
+        # # print('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')
         # print('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')
         # input('RK4 stuff')
         return True
@@ -407,7 +408,7 @@ class RungeKutta:
 
         tn, h, yn = self.t[0], self.h, self.y[0]
         f, eta = self.problem.f, self.eta
-        alpha, beta = self.problem.alpha, self.problem.alpha
+        alpha, beta = self.problem.alpha, self.problem.beta
 
         alpha_n = alpha(tn, yn)
         alpha_y_n = alpha_y(tn, yn)
@@ -425,11 +426,12 @@ class RungeKutta:
 
         pol_order = self.D_ovl.shape[1]
 
-        # WARN: this one is mine
+        #FIX: collapsing into scalar, WRONG
         sum_1 = np.sum(f_x_n * self.eeta_t(alpha_n) * alpha_y_n)
 
         sum_1t = 0
         if self.neutral:
+            #FIX: collapsing into scalar, WRONG
             sum_1t = np.sum(f_z_n * self.eeta_tt(beta_n) * beta_y_n)
 
         theta = np.squeeze((alpha_i - tn) / h)
@@ -450,16 +452,17 @@ class RungeKutta:
             # WARN: HAVEN'T DECIDED WHETHER TO USE THETA_I OR THETA_N
             kron_t = 0
             if self.neutral:
+                # print('neutral here')
                 if beta_n[i] <= self.t[-1]:
                     B_t = np.zeros(
                         (total_stages, total_stages), dtype=yn.dtype)
                 else:
-                    theta = np.array([n*theta**(n-1)
+                    theta_i = np.array([n*theta**(n-1)
                                      for n in range(pol_order)])
                     D_ovl = self.D_ovl[first_stage:final_stage, :]
                     D = D_ovl @ theta_i
                     B_t = np.tile(D[:, None], (1, total_stages))
-                kron_t = np.kron(B_t, f_x_n[i])
+                kron_t = np.kron(B_t, f_z_n[i])
 
             sum_2 += kron + kron_t
 
@@ -517,7 +520,9 @@ class RungeKutta:
         err = abs((np.linalg.norm(diff_new)**2) /
                   (np.linalg.norm(diff_old) - np.linalg.norm(diff_new)))
 
-        while err >= rho * TOL and iter <= max_iter:
+        # while err >= rho * TOL and iter <= max_iter:
+        while np.any(F(inside_K) >= rho * TOL) and iter <= max_iter:
+
             # Método de Newton usando recomposição LU
             diff_old = diff_new
 
@@ -530,6 +535,9 @@ class RungeKutta:
             iter += 1
             err = abs((np.linalg.norm(diff_new)**2) /
                       (np.linalg.norm(diff_old) - np.linalg.norm(diff_new)))
+            # print('err', err)
+            # print('err2', np.max(F(inside_K)))
+            # input('stop')
 
         # print('Ks', self.K)
         # print('final K', self.K[first_stage:final_stage])
@@ -570,6 +578,9 @@ class RungeKutta:
     def _eta_0(self, theta):
         tn, h, yn = self.t[0], self.h, self.y[0]
         theta = (theta - tn) / h
+        if h<=1e-13:
+            print('h', h)
+            input('yeah')
 
         pol_order = self.D_err.shape[1]
         theta = theta ** np.arange(pol_order)
@@ -706,53 +717,87 @@ class RungeKutta:
         self.y_tilde = self.y[0] + self.h * (self.b_err @ K)
 
     def disc_local_error_satistied(self):
-        denom = max(self.h, 10**-12)
+        sc = self.Atol +  np.maximum(np.abs(self.y[1]), np.abs(self.y_tilde))*self.Rtol
         self.disc_local_error = (
-            np.linalg.norm(self.y_tilde - self.y[1])/denom #/ self.h
+            np.linalg.norm((self.y_tilde - self.y[1])/sc)/np.sqrt(self.ndim)
         )  # eq 7.3.4
+        err2 = np.linalg.norm(self.y_tilde - self.y[1])  # eq 7.3.4
 
-        if self.disc_local_error <= self.params.TOL:
+        # print('_______________________disc__________________________')
+        # print('sc', sc)
+        # print('disc err1', self.disc_local_error, 'disc err2', err2, 'diff', abs(self.disc_local_error - err2))
+
+
+
+        # if self.disc_local_error <= self.params.TOL:
+        if self.disc_local_error <= 1:
             return True
         else:
-            self.h = min(1, self. h * (
-                max(
-                    self.params.omega_min,
-                    min(
-                        self.params.omega_max,
-                        self.params.rho
-                        * (self.params.TOL / self.disc_local_error) ** (1 / 4),
-                    ),
-                )
-            ))
+            # self.h = min(1, self. h * (
+            #     max(
+            #         self.params.omega_min,
+            #         min(
+            #             self.params.omega_max,
+            #             self.params.rho
+            #             * (self.params.TOL / self.disc_local_error) ** (1 / 4),
+            #         ),
+            #     )
+            # ))
+            facmax = self.params.omega_max
+            facmin = self.params.omega_min
+            fac = self.params.rho
+            err1 = self.disc_local_error
+            pp = 4 #FIX: adicionar o agnóstico
+            s = (1/err1)**(1/(pp + 1))
+            new_h = self.h* min(facmax, max(facmin, fac*s ))
+            # input(f'failed new h = {new_h} old h = {self.h}')
+            self.h = new_h
 
             self.t = [self.t[0], self.t[0] + self.h]
             return False
 
     def uni_local_error_satistied(self):
+        # print('_______________________uni__________________________')
 
         tn, h = self.t[0], self.h
         val1 = self.new_eta[0](tn + h/2)
         val2 = self.new_eta[1](tn + h/2)
-        # print('______________________________________________________________')
-        # print('tn + h/2', tn + h/2)
+
+        err2 = h * np.linalg.norm(val1 - val2) #eq 7.3.4
+
+        # print('err2', err2)
         # print('val1', val1, 'val2', val2)
-        # for i in range(1, 10):
-        #     print(f't = {tn + (1/i)*h} eta_0 = {self.new_eta[0](tn + (1/i)*h)}')
-        # input('bro')
+        # print('max', np.maximum(val1, val2))
+        # print('max*Rtol', np.maximum(val1, val2)*self.Rtol)
+        # print('self.Atol', self.Atol)
+        # print('self.Rtol', self.Rtol)
+        sc = self.Atol +  np.maximum(np.abs(val1), np.abs(val2))*self.Rtol
+        # print('sc', sc)
 
+        self.uni_local_error = (
+            np.linalg.norm((val1 - val2)/sc)/np.sqrt(self.ndim)
+        )  # eq 7.3.4
+        # print('err1', self.uni_local_error, 'err2', err2, 'diff', abs(self.uni_local_error - err2))
 
-        self.uni_local_error = h * np.linalg.norm(val1 - val2)
-        # eq 7.3.4
-
-        if self.uni_local_error <= self.params.TOL:
+        # if self.uni_local_error <= self.params.TOL:
+        if self.uni_local_error <= 1:
             return True
         else:
-            self.h = min(1, self.h * (
-                max(
-                    self.params.omega_min, self.params.rho *
-                    (self.params.TOL / self.uni_local_error) ** (1 / 5)
-                )
-            ))
+            # self.h = min(1, self.h * (
+            #     max(
+            #         self.params.omega_min, self.params.rho *
+            #         (self.params.TOL / self.uni_local_error) ** (1 / 5)
+            #     )
+            # ))
+
+            facmax = self.params.omega_max
+            facmin = self.params.omega_min
+            fac = self.params.rho
+            err2 = self.uni_local_error
+            qq = 4 #FIX: adicionar o agnóstico
+            s = (1/err2)**(1/(qq + 1))
+            self.h = self.h* min(facmax, max(facmin, fac*s))
+
             self.t = [self.t[0], self.t[0] + self.h]
             return False
 
@@ -770,19 +815,24 @@ class RungeKutta:
         self.new_eta_t = [self._eta_0_t, self._eta_1_t]
         self.new_eta_tt = self._eta_1_tt
         self.error_est_method()
+
+        # print('\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n')
+        local_disc_satisfied = self.disc_local_error_satistied()
+
         uni_local_disc_satistied = self.uni_local_error_satistied()
+
+        # input(f'stop at t = [{self.t[0]}, {self.t[0] + self.h}] h = {self.h}')
+
+
+        if not local_disc_satisfied:
+            print(f'failed disc t = {
+                self.t[0] + self.h}, h = {self.h}, err = {self.disc_local_error}')
+            # print('y1', self.y[1], 'y1*', self.y_tilde, 'diff', abs(self.y[1] - self.y_tilde))
+            return False
 
         if not uni_local_disc_satistied:
             print(f'failed uni t = {
                   self.t[0] + self.h}, h = {self.h} err = {self.uni_local_error} ')
-            return False
-
-        local_disc_satisfied = self.disc_local_error_satistied()
-
-        if not local_disc_satisfied:
-            print(f'failed disc t = {
-                self.t[1] + self.h}, h = {self.h}, err = {self.disc_local_error}')
-            print('y1', self.y[1], 'y1*', self.y_tilde)
             return False
 
         # print(f'successfull step with h = {self.h}')
@@ -790,16 +840,25 @@ class RungeKutta:
         if self.disc_local_error < 1e-14 or self.uni_local_error < 1e-14:
             self.h_next = min(1, self.params.omega_max * self.h)
         else:
-            self.h_next = min(1, self.h * max(
-                self.params.omega_min,
-                min(
-                    self.params.omega_max,
-                    self.params.rho * (self.params.TOL /
-                                       self.disc_local_error)**(1/4),
-                    self.params.rho * (self.params.TOL /
-                                       self.uni_local_error)**(1/5)
-                )
-            ))
+            # self.h_next = min(1, self.h * max(
+            #     self.params.omega_min,
+            #     min(
+            #         self.params.omega_max,
+            #         self.params.rho * (self.params.TOL /
+            #                            self.disc_local_error)**(1/4),
+            #         self.params.rho * (self.params.TOL /
+            #                            self.uni_local_error)**(1/5)
+            #     )
+            # ))
+
+            facmax = self.params.omega_max
+            facmin = self.params.omega_min
+            fac = self.params.rho
+            err1 = self.disc_local_error
+            err2 = self.uni_local_error
+            pp = 4 #FIX: adicionar o agnóstico
+            qq = 3
+            self.h_next = self.h* min(facmax, max(facmin, (1/err1)**(1/pp + 1))) #, (1/err2)**(1/qq + 1)))
 
         return True
 
@@ -823,7 +882,7 @@ class RungeKutta:
                     # print('new_h', new_h, 'type', type(new_h))
                     # print('self.h', self.h)
                     # print('self.h_next ', self.h_next)
-                    if new_h < self.h:
+                    if new_h < self.h and new_h > 10**-12:
                         print('disc_found', disc_found)
                         if self.disc not in self.solution.discs:
                             # self.solution.discs.append(disc_found)
@@ -1256,7 +1315,7 @@ class Solution:
             return "Failed"
 
 
-def solve_dde(f, alpha, phi, t_span, neutral=False, beta=None, d_f=None, d_alpha=None, d_phi=None):
+def solve_dde(f, alpha, phi, t_span, method = 'RK45', neutral=False, beta=None, d_f=None, d_alpha=None, d_phi=None):
     problem = Problem(f, alpha, phi, t_span, d_f = d_f, d_alpha = d_alpha,
                       d_phi = d_phi, beta = beta, neutral=neutral)
     solution = Solution(problem)
@@ -1269,7 +1328,7 @@ def solve_dde(f, alpha, phi, t_span, neutral=False, beta=None, d_f=None, d_alpha
     print("-" * 80)
 
     # first_step = RK4HHL(problem, solution, h, neutral)
-    first_step = RK45(problem, solution, h, neutral)
+    first_step = RK4HHL(problem, solution, h, neutral)
     status = solution.update(first_step.first_step_CRK())
     if status != None:
         raise ValueError(status)
@@ -1281,7 +1340,7 @@ def solve_dde(f, alpha, phi, t_span, neutral=False, beta=None, d_f=None, d_alpha
     while t < tf:
         h = min(h, tf - t)
         # onestep = RK4HHL(problem, solution, h, neutral)
-        onestep = RK45(problem, solution, h, neutral)
+        onestep = RK4HHL(problem, solution, h, neutral)
         status = solution.update(onestep.one_step_CRK())
         calls += onestep.number_of_calls
         if status != None:

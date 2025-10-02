@@ -5,35 +5,28 @@ from dataclasses import dataclass, field
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-# from scipy.optimize import root
+from scipy.optimize import root
 from scipy.integrate import solve_ivp
 
 
-def interval_bisection_step(f, a, b, TOL=1e-8, iter_max=100):
-    a_new = a
-    fa_new = f(a)
-    b_new = b
-    fb_new = f(b)
-    iter = 0
-
-    if fa_new * fb_new > 0:
-        raise ValueError("this shouldn't be happening in the bisection step")
-
-    while a_new == a or b_new == b:
-        c = (a_new + b_new) / 2
+def bisection_method(f, a, b, TOL=1e-8):
+    fa, fb = f(a), f(b)
+    while (b - a)/2 > TOL:
+        c = (a + b)/2
         fc = f(c)
 
         if fc == 0:
             return [c - TOL/2, c + TOL/2]
 
-        if fa_new*fc < 0:
-            b_new = c
-            fb_new = fc
-        else:
-            a_new = c
-            fa_new = fc
+        if fa * fc < 0:
+            b = c
+            fb = fc
 
-    return [a_new, b_new]
+        else:
+            a = c
+            fa = fc
+
+    return [a, b]
 
 
 @dataclass
@@ -124,7 +117,7 @@ class RungeKutta:
         self.params = CRKParameters()
         self.overlap = False
         self.test = False
-        self.disc = False  # either False or a pair (disc_old, disc_new)
+        self.disc = None  # either False or a pair (disc_old, disc_new)
         self.ndim = problem.ndim
         self.ndelays = problem.n_state_delays
         self.old_disc = np.full(problem.n_state_delays, None)
@@ -138,6 +131,7 @@ class RungeKutta:
         self.first_eta = True
         self.disc_position = False
         self.disc_beta_positions = False
+        self.new_discs = []
         self.disc_interval = None
 
     @property
@@ -200,76 +194,66 @@ class RungeKutta:
         for old_disc in discs:
             sign_change_alpha = d_zeta(
                 alpha, tn, old_disc) * d_zeta(alpha, tn + h, old_disc) < 0
-            new_disc = None
             if np.any(sign_change_alpha):
                 self.disc_position = sign_change_alpha
-                new_disc = self.step_with_disc(alpha, old_disc)
-                if new_disc:
-                    self.disc = self.t[0] + self.h
+                self.get_disc(alpha, old_disc)
                 return True
 
             if self.neutral:
                 sign_change_beta = d_zeta(
                     beta, tn, old_disc) * d_zeta(beta, tn + h, old_disc) < 0
                 if np.any(sign_change_beta):
-                    d_beta = self.problem.d_beta
-                    new_disc_beta = self.get_disc(
-                        beta, d_beta, old_disc, sign_change_beta)
-                    if new_disc is not None:
-                        new_disc = min(new_disc, new_disc_beta)
+                    self.disc_position = sign_change_beta
+                    self.get_disc(beta, old_disc)
+                    return True
 
-            if new_disc is not None:
-                self.disc = (old_disc, new_disc)
-                return True
         return False
 
-    def step_with_disc(self, delay, disc):
-        eta = self.solution.etas[-1]
-        print('pos', self.disc_position)
+    def get_disc(self, delay, disc):
         indices = np.where(self.disc_position)[0].tolist()
         a, b = self.t[0], self.t[0] + self.h
+        eta = self.solution.etas[-1]
         TOL = np.max(self.Atol)
+        discs = []
 
+        # discs almost never has more than one element
         for idx in indices[:]:
+            def d_zeta_y1(t):
+                self.h = t - self.t[0]
+                self.one_step_RK4()
+                y1 = self.y[1]
+                return delay(t, y1)[idx] - disc
 
             def d_zeta(t):
                 return delay(t, eta(t))[idx] - disc
 
-            if self.disc_interval is None:
-                max_iter = int(np.ceil(np.log2(self.h/TOL))) + 3
-                for _ in range(max_iter):
-                    if (b - a)/2 < TOL:
-                        self.h = b - self.t[0]
-                        self.disc_interval = [a, b]
-                        break
+            disc_interval = bisection_method(
+                d_zeta, a, b, TOL=np.max(self.Atol))
+            discs.append((disc_interval, idx))
 
-                    a_new, b = interval_bisection_step(
-                        d_zeta, a, b, TOL=np.max(self.Atol), iter_max=100)
-                    self.h = a_new - self.t[0]
-                    success = self.try_step_CRK()
-                    if success:
-                        eta = self.new_eta[1]
-                        a = a_new
-                    else:
-                        self.h = (a_new - a)/2 - self.t[0]
-                        success = self.try_step_CRK()
-                        if success:
-                            eta = self.new_eta[1]
-                            a = (a_new - a)/2
-                        else:
-                            # Failed to spot a disc, gotta remove it
-                            indices.remove(idx)
-                            break
-            else:
-                a, b = self.disc_interval
-                # we now only need to check if the new idx fails
-                if d_zeta(a)*d_zeta(b) >= 0:
-                    indices.remove(idx)
+        # discs almost never has more than one element
+        discs.sort(key=lambda x: x[0][0])
+        self.new_discs.append((disc, idx))
+        self.disc_interval = disc_interval
+        return
 
-        # if we got here, we found the disc at the indices
-        self.old_disc[indices] = disc
+    def validade_disc(self):
+        a, b = self.disc_interval
+        eta = self.new_eta[1]
+        etav = self.solution.etas[-1]
+        delay = self.problem.alpha
+        disc, idx = self.new_discs[0]
 
-        return True
+        def d_zeta(t):
+            return delay(t, eta(t))[idx] - disc
+
+        def d_zetav(t):
+            return delay(t, etav(t))[idx] - disc
+
+        if d_zeta(a)*d_zeta(b) < 0:
+            return True
+        else:
+            return False
 
     def one_step_RK4(self, eta_ov=None, eta_t_ov=None):
         tn, h, yn = self.t[0], self.h, self.y[0]
@@ -585,6 +569,47 @@ class RungeKutta:
         print(f'D_plus {D_plus} is less then zero {D_plus < 0}')
         input(f'D_minus {D_minus} is more than zero {D_minus > 0}')
 
+    def investigate_disc(self):
+        true_disc = self.validade_disc()
+
+        if not true_disc:
+            self.disc = None
+            return
+
+        self.disc = self.disc_interval[1]
+        self.h = self.disc - self.t[0]
+        self.get_possible_branches()
+
+    def get_possible_branches(self):
+        a, b = self.disc_interval
+        eta, alpha = self.new_eta[1], self.problem.alpha
+        self.alpha_limits = np.full(self.problem.n_state_delays, None)
+        if self.neutral:
+            beta = self.problem.beta
+            self.beta_limits = np.full(self.problem.n_state_delays, None)
+        discs = self.solution.discs
+
+        def d_zeta(delay, t, disc):
+            return delay(t, eta(t)) - disc  # np.full(self.ndelays, disc)
+
+        for old_disc in discs:
+            sign_change_alpha = d_zeta(
+                alpha, a, old_disc) * d_zeta(alpha, b, old_disc) < 0
+            if np.any(sign_change_alpha):
+                indices = np.where(sign_change_alpha)[0].tolist()
+                self.alpha_limits[indices] = old_disc
+
+            if self.neutral:
+                sign_change_beta = d_zeta(
+                    beta, a, old_disc) * d_zeta(beta, b, old_disc) < 0
+                if np.any(sign_change_beta):
+                    indices = np.where(sign_change_beta)[0].tolist()
+                    self.beta_limits[indices] = old_disc
+        print('limits of alpha', self.alpha_limits)
+        input('lets see boys')
+
+        return False
+
     def one_step_CRK(self, max_iter=15):
         success = self.try_step_CRK()
 
@@ -596,10 +621,14 @@ class RungeKutta:
                     return False, 0
 
                 disc_found = self.is_there_disc()
-
                 if disc_found:
-                    self.termination_test()
-                    return True, self
+                    h = self.disc_interval[0] - self.t[0]
+                    if h >= 1e-14:
+                        self.h = h
+                        success = self.try_step_CRK()
+                        if success:
+                            self.investigate_disc()
+                            return True, self
 
                 success = self.try_step_CRK()
                 if success:
@@ -812,7 +841,7 @@ class Solution:
 
     def update(self, onestep):
         success, step = onestep
-        if step.disc != False:
+        if step.disc:
             self.discs.append(step.disc)
             print(f'before accepting {step.disc} and t = {
                   step.t[0] + step.h}')

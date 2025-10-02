@@ -427,3 +427,34 @@ class Problem:
 
         return alpha_t, alpha_y
 
+
+
+
+
+
+
+def interval_bisection_step(f, a, b, TOL=1e-8, iter_max=100):
+    a_new = a
+    fa_new = f(a)
+    b_new = b
+    fb_new = f(b)
+    iter = 0
+
+    if fa_new * fb_new > 0:
+        raise ValueError("this shouldn't be happening in the bisection step")
+
+    while a_new == a or b_new == b:
+        c = (a_new + b_new) / 2
+        fc = f(c)
+
+        if fc == 0:
+            return [c - TOL/2, c + TOL/2]
+
+        if fa_new*fc < 0:
+            b_new = c
+            fb_new = fc
+        else:
+            a_new = c
+            fa_new = fc
+
+    return [a_new, b_new]

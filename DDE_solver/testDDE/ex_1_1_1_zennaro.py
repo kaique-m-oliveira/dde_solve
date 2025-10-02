@@ -55,6 +55,9 @@ sol = [solver.eta(i) for i in tt]
 # for i in range(len(tt)):
 #     print(tt[i], realsol[i] - sol[i])
 print("max", np.max(np.abs(np.squeeze(sol) - np.squeeze(realsol))))
+print('___________________________________________________')
+print('solver.t', solver.t)
+print('___________________________________________________')
 solution = np.array([real_sol(t) for t in solver.t])
 print('solution', solution)
 print('shape solver.y', solver.y)

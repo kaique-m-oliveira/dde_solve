@@ -20,15 +20,15 @@ def f(t, y, x, z):
 def phi(t):
     if t <= 0:
         return -t
-    if 0 <= t <= 1:
-        return -2 + t + 2*np.exp(t)
+    # if 0 <= t <= 1:
+    #     return -2 + t + 2*np.exp(t)
 
 
 def d_phi(t):
     if t <= 0:
         return -1
-    if 0 <= t <= 1:
-        return 1 + 2*np.exp(t)
+    # if 0 <= t <= 1:
+    #     return 1 + 2*np.exp(t)
 
 
 def alpha(t, y):
@@ -42,7 +42,7 @@ def real_sol(t):
         return 4 - t + 2*np.exp(t) - 2*(t + 1)*np.exp(t - 1)
 
 
-t_span = [1, 2]
+t_span = [0, 2]
 
 
 solver = solve_dde(f, alpha, phi, t_span, beta=alpha,

@@ -7,7 +7,7 @@ def f(t, y, yq):
 
 
 def phi(t):
-    return -0.5 if -1 <= t <= 0 else 4.5
+    return 9/2 if t < -1 else -1/2
 
 
 def alpha(t, y):
@@ -15,7 +15,7 @@ def alpha(t, y):
 
 
 t_span = [0, 3]
-discs = [-1]
+discs = [(-1, 9/2, -1/2)]
 
 solver = solve_dde(f, alpha, phi, t_span, discs=discs)
 plt.plot(solver.t, solver.y, color="blue", label='aproxx')

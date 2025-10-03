@@ -60,7 +60,7 @@ def validade_arguments(f, alpha, phi, t_span, beta=False, phi_t=False):
     alpha0 = alpha(t0, y0)
     if isinstance(alpha0, numbers.Real) or np.isscalar(alpha0):
         n_state_delays = 1
-    elif isinstance(alpha0, (list, np.ndarray)):
+    elif isinstance(alpha0, (list, tuple, np.ndarray)):
         n_state_delays = len(alpha0)
     else:
         raise TypeError(f"Unsupported type for alpha(t0, phi(t0)): {alpha0}")
@@ -213,7 +213,6 @@ class RungeKutta:
         indices = np.where(self.disc_position)[0].tolist()
         a, b = self.t[0], self.t[0] + self.h
         eta = self.solution.etas[-1]
-        TOL = np.max(self.Atol)
         discs = []
 
         # discs almost never has more than one element
@@ -273,27 +272,13 @@ class RungeKutta:
             ti = tn + c[i] * h
             yi = yn + h * (A[i][0:i] @ self.K[0: i])
 
-            if np.all(alpha(ti, yi) <= np.full(self.ndelays, tn)):
-                alpha_i = alpha(ti, yi)
+            alpha_i = alpha(ti, yi)
+
+            if np.all(alpha_i <= np.full(self.ndelays, tn)):
                 Y_tilde = eta(alpha_i)
-                if self.neutral:
-                    beta_i = self.problem.beta(ti, yi)
-                    Z_tilde = self.eta_t(alpha_i)
-                    self.K[i] = f(ti, yi, Y_tilde, Z_tilde)
-                else:
-                    self.K[i] = f(ti, yi, Y_tilde)
-                self.stages_calculated = i + 1
 
             elif eta_ov is not None:
-                alpha_i = alpha(ti, yi)
                 Y_tilde = eta_ov(alpha_i)
-                if self.neutral:
-                    beta_i = self.problem.beta(ti, yi)
-                    Z_tilde = eta_t_ov(alpha_i)
-                    self.K[i] = f(ti, yi, Y_tilde, Z_tilde)
-                else:
-                    self.K[i] = f(ti, yi, Y_tilde)
-                self.stages_calculated = i + 1
 
             else:  # this would be the overlapping case
                 self.overlap = True
@@ -302,9 +287,32 @@ class RungeKutta:
                     return False
                 break
 
+            if not self.neutral:
+                self.K[i] = f(ti, yi, Y_tilde)
+                self.stages_calculated = i + 1
+
+            else:
+                beta_i = self.problem.beta(ti, yi)
+
+                if np.all(beta_i <= np.full(self.ndelays, tn)):
+                    Z_tilde = self.solution.eta_t(beta_i)
+
+                elif eta_t_ov is not None:
+                    Z_tilde = eta_ov(beta_i)
+
+                else:  # this would be the overlapping case
+                    self.overlap = True
+                    success = self.fixed_point()
+                    if not success:
+                        return False
+                    break
+
+                self.K[i] = f(ti, yi, Y_tilde, Z_tilde)
+                self.stages_calculated = i + 1
+
         self.y[1] = yn + h * (self.b @ self.K[0:n_stages])
         self.stages_calculated = n_stages
-        # if self.t[0] >= 0.9983319415609049:
+
         if np.isnan(self.y[1]).any():
             print('K', self.K)
             print('shape', self.y[1].shape)
@@ -313,12 +321,6 @@ class RungeKutta:
         return True
 
     def fixed_point(self):
-        tn, h = self.t[0], self.h
-        alpha = self.problem.alpha
-
-        if self.neutral:
-            beta = self.problem.beta
-
         K = self.K[0:self.n_stages["discrete_method"]]
         self.one_step_RK4(eta_ov=self.eeta, eta_t_ov=self.eeta_t)
         self.first_eta = False
@@ -371,7 +373,6 @@ class RungeKutta:
         return eta0
 
     def _hat_eta_0(self, theta):
-
         tn, h, yn = self.t[0], self.h, self.y[0]
         theta = (theta - tn) / h
         pol_order = self.D_ovl.shape[1]
@@ -383,7 +384,6 @@ class RungeKutta:
         return eta0
 
     def _hat_eta_0_t(self, theta):
-        # print('------------------inside hat_t ------------------------')
         tn, h, yn = self.t[0], self.h, self.y[0]
         theta = (theta - tn) / h
         pol_order = self.D_ovl.shape[1]
@@ -462,7 +462,7 @@ class RungeKutta:
 
         self.disc_local_error = (
             np.linalg.norm(
-                (self.y_tilde - self.y[1])/sc)/np.sqrt(self.ndim)  # /self.h
+                (self.y_tilde - self.y[1])/sc)/np.sqrt(self.ndim)
         )  # eq 7.3.4
 
         if self.disc_local_error <= 1:
@@ -471,7 +471,6 @@ class RungeKutta:
             return False
 
     def uniform_disc_satistied(self):
-        # print('_______________________uni__________________________')
 
         tn, h = self.t[0], self.h
         val1 = self.new_eta[0](tn + h/2)
@@ -512,8 +511,11 @@ class RungeKutta:
         fac = self.params.rho
         err1 = self.disc_local_error if self.disc_local_error >= 1e-15 else 1e-15
         err2 = self.uni_local_error if self.uni_local_error >= 1e-15 else 1e-15
-        pp = 4  # FIX: adicionar o agnóstico
-        qq = 3
+        pp = min(self.order["discrete_method"],
+                 self.order["discrete_err_est_method"])
+        qq = min(self.order["continuous_method"],
+                 self.order["continuous_err_est_method"])
+
         self.h_next = self.h * \
             min(facmax, max(facmin, min(fac*(1/err1) **
                 (1/pp + 1), fac*(1/err2)**(1/qq + 1))))
@@ -539,8 +541,12 @@ class RungeKutta:
 
         self.disc = self.disc_interval[1]
         self.h = self.disc - self.t[0]
-        self.get_possible_branches()
-        self.investigate_branches()
+
+        # WARN: this is only concerning state dependent for now
+        input('here')
+        if self.disc < self.solution.t[0]:
+            self.get_possible_branches()
+            self.investigate_branches()
 
     def investigate_branches(self):
         alpha_limits = (self.alpha_discs != None) + 0
@@ -623,18 +629,16 @@ class RungeKutta:
                 if np.any(sign_change_beta):
                     indices = np.where(sign_change_beta)[0].tolist()
                     self.beta_discs[indices] = old_disc
-        print('limits of alpha', self.alpha_discs)
-        input('lets see boys')
 
         return False
 
-    def one_step_CRK(self, max_iter=15):
+    def one_step_CRK(self, max_iter=10):
         success = self.try_step_CRK()
 
         if success:
             return True, self
         else:
-            for i in range(max_iter - 1):
+            for i in range(max_iter):
                 if self.h <= 10**-12:
                     return False, 0
 
@@ -652,11 +656,11 @@ class RungeKutta:
                 if success:
                     return True, self
 
+            print('failed here', self.h)
             return False, 0
 
-    def first_step_CRK(self, max_iter=5):
+    def first_step_CRK(self, max_iter=10):
         self.eta = self.solution.eta
-        # print('why')
         success = self.try_step_CRK()
         if success:
             return True, self
@@ -796,14 +800,12 @@ class Solution:
         self.y = [np.atleast_1d(problem.phi(problem.t_span[0]))]
         self.etas = [problem.phi]
         self.etas_t = [problem.phi_t]
-        if len(discs) == 0:
-            discs.append(problem.t_span[0])
-        if problem.t_span[0] not in discs:
-            discs.append(problem.t_span[0])
-        print('discs before', discs)
-        self.discs = sorted(discs)
-        print('discs after', self.discs)
-        # input('daudn')
+
+        if discs:
+            self.validade_discs(discs)
+        else:
+            self.discs = [problem.t_span[0]]
+
         self.eta_calls = 0
         self.eta_t_calls = 0
         self.t_next = None
@@ -816,19 +818,15 @@ class Solution:
             results = np.empty((len(t), self.problem.ndim), dtype=float)
             for i in range(len(t)):
                 idx = bisect_left(self.t, t[i])
-                if t[i] < self.t[0]:
+                if t[i] <= self.t[0]:
                     if limit_direction:
-                        # taking a left limit approximation
-                        results[i] = self.etas[0](
-                            t[i] + limit_direction[i]*np.info(float).eps)
-                    else:
-                        results[i] = self.etas[0](t[i])
-                if t[i] <= self.t[-1]:
-                    if limit_direction:
-                        # taking a left limit approximation
-                        results[i] = self.etas[idx + limit_direction[i]](t[i])
-                    else:
-                        results[i] = self.etas[idx](t[i])
+                        if self.breaking_discs[t[i]]:
+                            disc = self.breaking_discs[t[i]]
+                            results[i] = disc[limit_direction[i]]
+                            break
+                    results[i] = self.etas[0](t[i])
+                elif t[i] <= self.t[-1]:
+                    results[i] = self.etas[idx](t[i])
                 else:
                     if ov:
                         results[i] = self.etas[-1](t[i])
@@ -857,21 +855,73 @@ class Solution:
             return np.squeeze(results)
         return eval
 
+    def validade_discs(self, discs):
+        if not isinstance(discs, (list, tuple, np.ndarray)):
+            raise TypeError("discs should be a list of tuples")
+
+        for disc in discs:
+            if not isinstance(disc, (list, tuple, np.ndarray)):
+                raise TypeError("discs should be a list of tuples")
+
+            if len(disc) != 3:
+                raise TypeError(
+                    f" Problem with one of the discontinuities, lenght of {disc} is not 3")
+
+            # Validating discontinuity
+            if disc[0] > self.problem.t_span[0]:
+                raise ValueError(
+                    f"Discontinuities beyond t_span[0] are not allowed")
+
+            # Validading left limit
+            if isinstance(disc[1], numbers.Real) or np.isscalar(disc[1]):
+                if 1 != self.problem.ndim:
+                    raise TypeError(
+                        f"Dimension of one the left limits doesn't math dimension of phi")
+            elif isinstance(disc[1], (list, np.ndarray)):
+                if len(disc[1]) != self.problem.ndim:
+                    raise TypeError(
+                        f"Dimension of one the left limits doesn't math dimension of phi")
+            else:
+                raise TypeError(
+                    f"Unsupported type left limit:{type(disc[1])}")
+
+            # Validading right limit
+            if isinstance(disc[2], numbers.Real) or np.isscalar(disc[1]):
+                if 1 != self.problem.ndim:
+                    raise TypeError(
+                        f"Dimension of one the right limits doesn't math dimension of phi")
+            elif isinstance(disc[2], (list, np.ndarray)):
+                if len(disc[2]) != self.problem.ndim:
+                    raise TypeError(
+                        f"Dimension of one the right limits doesn't math dimension of phi")
+            else:
+                raise TypeError(
+                    f"Unsupported type right limit:{type(disc[1])}")
+
+        # WARN: gotta add the check for neutral later, because the initial t[0] might break the neutral one
+        discs.sort(key=lambda x: x[0])
+
+        self.breaking_discs = {}
+        for disc in discs:
+            self.breaking_discs[disc[0]] = {-1: disc[1], 1: disc[2]}
+
+        self.discs = [x[0] for x in discs]
+        if self.problem.t_span[0] not in self.discs:
+            self.discs.append(self.problem.t_span[0])
+
     def update(self, onestep):
         success, step = onestep
-        if step.disc:
-            self.discs.append(step.disc)
-            print(f'before accepting {step.disc} and t = {
-                  step.t[0] + step.h}')
 
-        if success:  # Step accepted
-            # if (self.t[-1] + step.h != step.t[1]):
-            # print('sum', self.t[-1] + step.h, 't1', step.t[1])
+        if success:
             self.t.append(step.t[0] + step.h)
             self.y.append(step.y[1])
             self.etas.append(step.new_eta[1])
             self.etas_t.append(step.new_eta_t[1])
-            # h = step.h_next  # Use adjusted stepsize from rejection
+
+            if step.disc:
+                self.discs.append(step.disc)
+                print(f'before accepting {step.disc} and t = {
+                      step.t[0] + step.h}')
             return None
 
         else:
@@ -893,7 +943,8 @@ def solve_dde(f, alpha, phi, t_span, method='RK45', neutral=False, beta=None, d_
 
     # first_step = RK4HHL(problem, solution, h, neutral)
     first_step = RK4HHL(problem, solution, h, neutral)
-    status = solution.update(first_step.first_step_CRK())
+    # status = solution.update(first_step.first_step_CRK())
+    status = solution.update(first_step.one_step_CRK())
     if status != None:
         raise ValueError(status)
     h = first_step.h_next

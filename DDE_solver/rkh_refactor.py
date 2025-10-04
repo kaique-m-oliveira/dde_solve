@@ -575,8 +575,10 @@ class RungeKutta:
                 continued = continued[mask]
                 continuation.append(continued)
 
+        print('continuation', continuation)
         if not np.all(np.any(continuation)):
             input('solution broke')
+        input('stop')
 
     def get_possible_branches(self):
         """

@@ -1,16 +1,5 @@
-# from DDE_solver.rkh_state import *
-# from DDE_solver.rkh_step_rejection import *
-# from DDE_solver.rkh_testing import *
-# from DDE_solver.rkh import *
 import numpy as np
-# from DDE_solver.rkh_vectorize import *
-# from DDE_solver.rkh_multiple_delays import *
 from DDE_solver.rkh_refactor import *
-# from DDE_solver.rkh_refactor_before_chatgpt import *
-# from DDE_solver.rkh_state_complete import *
-# from DDE_solver.rkh_NDDE import *
-
-# WARN: STATE EXAMPLE
 
 
 def f(t, y, yq):
@@ -34,9 +23,9 @@ def real_sol_2(t):
 
 
 t_span = [0, 2]
+discs = [(-1, 1, 0)]
 
-
-solver = solve_dde(f, alpha, phi, t_span, discs=[-1])
+solver = solve_dde(f, alpha, phi, t_span, discs=discs)
 
 
 print(f'{'='*80}')

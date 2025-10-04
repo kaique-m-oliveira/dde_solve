@@ -10,3 +10,5 @@ python testDDE/ex1_shampine_dde23_multiple_delays.py
 python testDDE/ex_ov_multi_delay.py
 python testDDE/ex_ov_system.py
 python testDDE/ex_ov_system_multidelay.py
+python testDDE/exRADAR_sol_term.py
+python testDDE/ex_1_pg43_Biffurcation.py

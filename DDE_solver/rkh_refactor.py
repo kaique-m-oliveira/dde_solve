@@ -576,6 +576,7 @@ class RungeKutta:
         f = self.problem.f
         alpha = self.problem.alpha
         alpha_discs = self.alpha_discs
+        print('alpha_discs', alpha_discs)
         old_disc = np.array([x if x is not None else 0 for x in alpha_discs])
         eta = self.solution.eta
         eps = np.finfo(float).eps**(1/3)
@@ -598,21 +599,18 @@ class RungeKutta:
                       for i in range(len(alpha1))]
 
             if not self.neutral:
+                print('limit_dir', limit_direction)
                 y_lim = y1 + eps * \
                     f(t1, y1, eta(alpha1, limit_direction=limit_direction))
 
                 continued = -1*limit_direction * \
                     (alpha(t1 + eps, y_lim) - old_disc) < 0
-                print('___________________________________________________')
                 print('lim_direction', limit_direction)
-                print('y_lim', y_lim)
-                print('alpha1', alpha1)
-                print('f', f(t1, y1, eta(alpha1, limit_direction=limit_direction)))
-                print('alpha_diff', (alpha(t1 + eps, y_lim) - old_disc))
                 print('continued', continued)
                 mask = np.array(alpha_limits.astype(bool))
                 continued = continued[mask]
                 continuation.append(continued)
+                print('___________________________________________________')
 
         print('continuation', continuation)
         if not np.all(np.any(continuation, axis=0)):
@@ -621,7 +619,7 @@ class RungeKutta:
         possible_branches = np.all(continuation, axis=0)
         print('possible_branches', possible_branches)
         if np.any(possible_branches):
-            print('possible_branches', possible_branches)
+            print(f'solution branched {possible_branches}')
             input(1)
 
         input('stop')
@@ -654,12 +652,13 @@ class RungeKutta:
             for i in range(self.problem.n_state_delays):
                 if alpha0[i] in self.solution.breaking_discs:
                     self.alpha_discs[i] = alpha0[i]
-                if np.any(self.alpha_discs):
-                    self.old_disc = alpha0
-                    self.disc = self.t[0]
-                    self.investigate_branches()
 
-        return self.one_step_CRK()
+            if np.any(self.alpha_discs):
+                self.old_disc = alpha0
+                self.disc = self.t[0]
+                self.investigate_branches()
+
+        return self.one_step_CRK(max_iter=40)
 
 
 class RK4HHL(RungeKutta):
@@ -810,10 +809,11 @@ class Solution:
                 idx = bisect_left(self.t, t[i])
                 if t[i] <= self.t[0]:
                     if limit_direction is not None:
-                        if self.breaking_discs[t[i]] and limit_direction[i] != 0:
-                            disc = self.breaking_discs[t[i]]
-                            results[i] = disc[limit_direction[i]]
-                            break
+                        if limit_direction[i] != 0:
+                            if self.breaking_discs[t[i]]:
+                                disc = self.breaking_discs[t[i]]
+                                results[i] = disc[limit_direction[i]]
+                                break
                     results[i] = self.etas[0](t[i])
                 elif t[i] <= self.t[-1]:
                     results[i] = self.etas[idx](t[i])

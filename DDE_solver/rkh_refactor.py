@@ -102,9 +102,9 @@ class RungeKutta:
         self.problem = problem
         self.solution = solution
         self.h = h
-        self.t = [tn, tn + self.h]
         self.h_next = None
-        self.y = [yn, 1]  # we don't have yn_plus yet
+        self.t = [tn, tn]  # WARN: little hack for branching check
+        self.y = [yn, yn]  # WARN: another little hack for branching check
         self.n = problem.ndim
         self.y_tilde = None
         self.K = np.zeros((total_stages, self.n), dtype=float)
@@ -507,6 +507,7 @@ class RungeKutta:
         qq = min(self.order["continuous_method"],
                  self.order["continuous_err_est_method"])
 
+        self.t[1] = self.t[0] + self.h
         self.h_next = self.h * \
             min(facmax, max(facmin, min(fac*(1/err1) **
                 (1/pp + 1), fac*(1/err2)**(1/qq + 1))))
@@ -539,47 +540,6 @@ class RungeKutta:
             if self.old_disc in self.solution.breaking_discs:
                 self.investigate_branches()
 
-    def investigate_branches(self):
-        old_disc = self.old_disc
-        disc = self.disc
-        f = self.problem.f
-        alpha = self.problem.alpha
-        alpha_discs = self.alpha_discs
-        eta = self.solution.eta
-        eps = np.finfo(float).eps**(1/3)
-
-        alpha_limits = (self.alpha_discs != None) + 0
-        idx = np.where(alpha_limits)[0]
-        N = len(idx)
-
-        continuation = []
-        for mask in range(1 << N):      # loop over 0..2^k-1
-            limit_direction = alpha_limits.copy()
-            for j in range(N):
-                if (mask >> j) & 1:     # check j-th bit
-                    limit_direction[idx[j]] = -1
-
-            t1 = self.t[0] + self.h
-            y1 = self.y[1]
-            alpha1 = alpha(t1, y1)
-            alpha1 = [alpha1[i] if alpha_discs[i] is None else alpha_discs[i]
-                      for i in range(len(alpha1))]
-
-            if not self.neutral:
-                y_lim = y1 + eps * \
-                    f(t1, y1, eta(alpha1, limit_direction=limit_direction))
-
-                continued = -1*limit_direction * \
-                    (alpha(t1 + eps, y_lim) - old_disc) < 0
-                mask = np.array(alpha_limits.astype(bool))
-                continued = continued[mask]
-                continuation.append(continued)
-
-        print('continuation', continuation)
-        if not np.all(np.any(continuation)):
-            input('solution broke')
-        input('stop')
-
     def get_possible_branches(self):
         """
         This function checks for candidates for possible branches, 
@@ -611,45 +571,95 @@ class RungeKutta:
                     indices = np.where(sign_change_beta)[0].tolist()
                     self.beta_discs[indices] = disc
 
+    def investigate_branches(self):
+        disc = self.disc
+        f = self.problem.f
+        alpha = self.problem.alpha
+        alpha_discs = self.alpha_discs
+        old_disc = np.array([x if x is not None else 0 for x in alpha_discs])
+        eta = self.solution.eta
+        eps = np.finfo(float).eps**(1/3)
+
+        alpha_limits = (self.alpha_discs != None) + 0
+        idx = np.where(alpha_limits)[0]
+        N = len(idx)
+
+        continuation = []
+        for mask in range(1 << N):      # loop over 0..2^k-1
+            limit_direction = alpha_limits.copy()
+            for j in range(N):
+                if (mask >> j) & 1:     # check j-th bit
+                    limit_direction[idx[j]] = -1
+
+            t1 = self.t[1]
+            y1 = self.y[1]
+            alpha1 = alpha(t1, y1)
+            alpha1 = [alpha1[i] if alpha_discs[i] is None else alpha_discs[i]
+                      for i in range(len(alpha1))]
+
+            if not self.neutral:
+                y_lim = y1 + eps * \
+                    f(t1, y1, eta(alpha1, limit_direction=limit_direction))
+
+                continued = -1*limit_direction * \
+                    (alpha(t1 + eps, y_lim) - old_disc) < 0
+                print('___________________________________________________')
+                print('lim_direction', limit_direction)
+                print('y_lim', y_lim)
+                print('alpha1', alpha1)
+                print('f', f(t1, y1, eta(alpha1, limit_direction=limit_direction)))
+                print('alpha_diff', (alpha(t1 + eps, y_lim) - old_disc))
+                print('continued', continued)
+                mask = np.array(alpha_limits.astype(bool))
+                continued = continued[mask]
+                continuation.append(continued)
+
+        print('continuation', continuation)
+        if not np.all(np.any(continuation, axis=0)):
+            input('TERMINATION TEST ')
+
+        possible_branches = np.all(continuation, axis=0)
+        print('possible_branches', possible_branches)
+        if np.any(possible_branches):
+            print('possible_branches', possible_branches)
+            input(1)
+
+        input('stop')
+
     def one_step_CRK(self, max_iter=10):
-        success = self.try_step_CRK()
+        iter = 0
+        while self.h >= 10**-12 and iter <= max_iter:
+            success = self.try_step_CRK()
+            if success:
+                return True, self
 
-        if success:
-            return True, self
-        else:
-            for i in range(max_iter):
-                if self.h <= 10**-12:
-                    return False, 0
+            disc_found = self.is_there_disc()
+            if disc_found:
+                h = self.disc_interval[0] - self.t[0]
+                if h >= 1e-14:
+                    self.h = h
+                    success = self.try_step_CRK()
+                    if success:
+                        self.investigate_disc()
+                        return True, self
+            iter += 1
 
-                disc_found = self.is_there_disc()
-                if disc_found:
-                    h = self.disc_interval[0] - self.t[0]
-                    if h >= 1e-14:
-                        self.h = h
-                        success = self.try_step_CRK()
-                        if success:
-                            self.investigate_disc()
-                            return True, self
+        return False, 0
 
-                success = self.try_step_CRK()
-                if success:
-                    return True, self
+    def first_step_CRK(self):
+        if self.solution.breaking_discs:
+            self.alpha_discs = np.full(self.problem.n_state_delays, None)
+            alpha0 = self.problem.alpha(self.t[0], self.y[0])
 
-            print('failed here', self.h)
-            return False, 0
+            for i in range(self.problem.n_state_delays):
+                if alpha0[i] in self.solution.breaking_discs:
+                    self.alpha_discs[i] = alpha0[i]
+                if np.any(self.alpha_discs):
+                    self.old_disc = alpha0
+                    self.disc = self.t[0]
+                    self.investigate_branches()
 
-    def first_step_CRK(self, max_iter=10):
-        self.eta = self.solution.eta
-        success = self.try_step_CRK()
-        if success:
-            return True, self
-        else:
-            for i in range(max_iter - 1):
-                success = self.try_step_CRK()
-                if success:
-                    return True, self
-
-            return False, 0
+        return self.one_step_CRK()
 
 
 class RK4HHL(RungeKutta):
@@ -923,7 +933,7 @@ def solve_dde(f, alpha, phi, t_span, method='RK45', neutral=False, beta=None, d_
     # first_step = RK4HHL(problem, solution, h, neutral)
     first_step = RK4HHL(problem, solution, h, neutral)
     # status = solution.update(first_step.first_step_CRK())
-    status = solution.update(first_step.one_step_CRK())
+    status = solution.update(first_step.first_step_CRK())
     if status != None:
         raise ValueError(status)
     h = first_step.h_next

@@ -2,6 +2,61 @@
 from rkh_refactor import *
 
 
+class RK45(RungeKutta):
+    # Dormand–Prince RK5(4) with continuous extension
+
+    A = np.array([
+        [0, 0, 0, 0, 0, 0, 0],
+        [1/5, 0, 0, 0, 0, 0, 0],
+        [3/40, 9/40, 0, 0, 0, 0, 0],
+        [44/45, -56/15, 32/9, 0, 0, 0, 0],
+        [19372/6561, -25360/2187, 64448/6561, -212/729, 0, 0, 0],
+        [9017/3168, -355/33, 46732/5247, 49/176, -5103/18656, 0, 0],
+        [35/384, 0, 500/1113, 125/192, -2187/6784, 11/84, 0]
+    ], dtype=np.float64)
+
+    # 5th-order weights
+    b = np.array([35/384, 0, 500/1113, 125/192,
+                  -2187/6784, 11/84], dtype=np.float64)
+
+    # Error estimate weights (difference to 4th-order)
+    b_err = np.array([5179/57600, 0, 7571/16695, 393/640,
+                      -92097/339200, 187/2100, 1/40], dtype=np.float64)
+
+    # Stage time fractions
+    c = np.array([0, 1/5, 3/10, 4/5, 8/9, 1, 1], dtype=np.float64)
+
+    # Dense output coefficients (like your D matrix)
+    D = np.array([
+        [0.,  1., -2.86053867,  3.09957788, -1.16181058,  0.01391721],
+        [0.,  0.,  0.,  0.,  0.,  0.],
+        [0.,  0.,  4.04714150, -6.34535405,  2.79546509, -0.04801624],
+        [0.,  0., -3.94116007, 10.90400303, -6.72931751,  0.41751622],
+        [0.,  0.,  2.84194470, -7.54767586,  4.95763672, -0.57428174],
+        [0.,  0., -1.61098864,  4.21891584, -2.95010387,  0.47312904],
+        [0.,  0.,  1.52360117, -4.32946684,  3.08813015, -0.28226449]
+    ], dtype=np.float64)
+
+    D_ovl = D
+    D_err = D
+
+    order = {
+        "discrete_method": 5,
+        "discrete_err_est_method": 4,
+        "continuous_method": 4,
+        "continuous_err_est_method": 4,
+        "continuous_ovl_method": 4
+    }
+
+    n_stages = {
+        "discrete_method": 6,
+        "discrete_err_est_method": 7,   # b_err has 7 entries
+        "continuous_method": 7,   # dense output uses 7 coeffs
+        "continuous_err_est_method": 7,
+        "continuous_ovl_method": 7
+    }
+
+
 def lu_factor(A):
     """LU decomposition with partial pivoting, LAPACK-style.
     Returns LU, piv such that P@A = L@U,

@@ -9,7 +9,9 @@ def f(t, y, x):
 
 
 def phi(t):
-    if t < -1:
+    if t <= -2:
+        return 0
+    elif t < -1:
         return -1
     elif t == -1:
         return 0
@@ -32,7 +34,7 @@ def real_sol(t):
 
 t_span = [0, 3]
 
-discs = [(-1, -1, 1)]
+discs = [(-1, -1, 1), (-2, 0, -1)]
 
 solver = solve_dde(f, alpha, phi, t_span, discs=discs)
 tt = np.linspace(t_span[0], t_span[1], 100)

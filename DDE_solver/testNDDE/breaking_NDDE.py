@@ -23,10 +23,9 @@ epsilon = 0
 t_span = [0.25, 4.1]
 
 
-solver = solve_ndde(t_span, f, alpha, alpha, phi, phi_t, method='RK45', discs=[], Atol=1e-7, Rtol=1e-7)
+Tol = 1e-7
+solver = solve_ndde(t_span, f, alpha, alpha, phi, phi_t, method='RK45', discs=[], Atol=Tol, Rtol=Tol)
 
-# solver = solve_ndde(f, alpha, phi, t_span, beta=alpha,
-#                    neutral=True, d_phi=phi_t)
 
 
 print(f'{'='*80}')

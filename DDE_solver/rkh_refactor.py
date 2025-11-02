@@ -1337,12 +1337,14 @@ def solve_dde(f, alpha, phi, t_span, method='RK45', Atol = 1e-7, Rtol = 1e-7, ne
 
 # def solve_dde(f, alpha, phi, t_span, method='RK45', neutral=False, beta=None, d_phi=None, discs=[]):
 def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='RK45', discs=[], Atol=1e-7, Rtol=1e-7):
-    problem = Problem(f, alpha, phi, t_span, beta, phi_t, neutral=True)
+    problem = Problem(f, alpha, phi, t_span, Atol = Atol, Rtol = Rtol, beta = beta, phi_t = phi_t, neutral=True)
     solution = Solution(problem, discs=discs, neutral=True)
     params = CRKParameters()
     t, tf = problem.t_span
 
-    h = (np.max(Atol) ** (1 / 4))  # Initial stepsize
+    order = 5
+    h = get_initial_step(problem, solution, Atol, Rtol, order, neutral = True)
+    # h = (np.max(Atol) ** (1 / 4))  # Initial stepsize
     # input(f'Atol Rtol', problem.Atol, problem.Rtol)
     print("-" * 80)
     print("Initial h:", h)
@@ -1401,6 +1403,9 @@ def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='RK45', discs=[], Atol
             recursive_integration(solution, solutionList)
             return solutionList
         elif status == "terminated" or status == "failed":
+            print('Counting.steps', Counting.steps)
+            print('Counting.fails', Counting.fails)
+            print('Counting.fnc_calls', Counting.fnc_calls)
             raise ValueError(f"solution failed duo to {status} at t = {solution.t[-1]}")
 
 

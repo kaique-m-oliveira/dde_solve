@@ -24,7 +24,7 @@ def exact_sol(t):
 t_span = [0, 2]
 discs = [(-1, 9/2, -1/2)]
 
-Tol = 1e-16
+Tol = 1e-4
 solver = solve_dde(f, alpha, phi, t_span, discs=discs, Atol = Tol, Rtol = Tol)
 
 t_discrete = solver.t

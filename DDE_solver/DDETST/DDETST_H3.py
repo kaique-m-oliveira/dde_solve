@@ -2,41 +2,46 @@ import numpy as np
 
 from DDE_solver.rkh_refactor import *
 
-
-def f(t, y, x):
-    fx = 1.0 if x < 0 else -1.0
-    return fx - y
+L3 = 0.3
+def f(t, y, x, z):
+    val = np.cos(t)*(1 + x)+L3*y*z + (1 - L3)*np.sin(t)*np.cos(t*np.sin(t)**2) - np.sin(t + t*np.sin(t)**2)
+    return val
 
 
 def phi(t):
-    return 1.0
+    return 0
+
+
+def phi_t(t):
+    return 1
 
 
 def alpha(t, y):
-    return t / 2.0
+    return t*(y**2)
+
+beta = alpha
 
 
 def real_sol(t):
-    if 0 <= t <= 2*np.log(2):
-        return 2*np.exp(-t) - 1
-    elif 2*np.log(2) < t <= 2*np.log(6):
-        return 1 - 6*np.exp(-t)
-    elif 2*np.log(6) < t <= 2*np.log(66):
-        return 66*np.exp(-t) - 1
+    return np.sin(t)
 
+t_span = [0, np.pi]
 
-t_span = [0, 2*np.log(66)]
-
+print(f'{'='*80}')
+print(f''' {'='*80} 
+      This is problem DDETST H2 
+      ''')
 
 methods = ['RKC3', 'RKC4', 'RKC5']
-tolerances = [1e-3, 1e-4, 1e-5, 1e-6, 1e-8, 1e-10]
+# tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10]
+tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
 
 
 for Tol in tolerances:
     print('===========================================================')
     print(f'Tol = {Tol} \n')
     for method in methods:
-        solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+        solution = solve_ndde(t_span, f, alpha, beta, phi, phi_t, method = method, Atol=Tol, Rtol=Tol)
 
         max_diff = 0
         for i in range(len(solution.t) - 1):

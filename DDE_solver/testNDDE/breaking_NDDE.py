@@ -20,10 +20,10 @@ def alpha(t, y):
 
 
 epsilon = 0
-t_span = [0.25, 4.1]
+t_span = [0.25, 5]
 
 
-Tol = 1e-8
+Tol = 1e-9
 solver = solve_ndde(t_span, f, alpha, alpha, phi, phi_t, method='RKC5', discs=[], Atol=Tol, Rtol=Tol)
 
 

@@ -2,41 +2,58 @@ import numpy as np
 
 from DDE_solver.rkh_refactor import *
 
-L3 = 0.1
-def f(t, y, x, z):
-    val = np.cos(t)*(1 + x)+L3*y*z + (1 - L3)*np.sin(t)*np.cos(t*np.sin(t)**2) - np.sin(t + t*np.sin(t)**2)
-    return val
 
+def f(t, y, x, z):
+    return z
 
 def phi(t):
-    return 0
-
+    return np.exp(-t**2)
 
 def phi_t(t):
-    return 1
-
+    return -2*t*np.exp(-t**2)
 
 def alpha(t, y):
-    return t*(y**2)
+    return 2*t - 0.5
 
 beta = alpha
 
+# ---- Analytical construction ----
+
+x = [(1 - 2**(-i))/2 for i in range(10)]
+
+B = [0]
+for i in range(1, 10):
+    B.append(2*(4**(i-1) + B[i-1]))
+
+C = [0]
+for i in range(1, 10):
+    C.append(-4**(i-2) - B[i-1]/2 + C[i-1])
+
+def y_piece(t, i=0):
+    return np.exp(-4**i * t**2 + B[i]*t + C[i]) / (2**i) + K[i]
+
+K = [0]
+for j in range(1, 10):
+    K.append(-np.exp(-4**j * x[j]**2 + B[j]*x[j] + C[j])/(2**j) + y_piece(x[j], i=j-1))
 
 def real_sol(t):
-    return np.sin(t)
+    for j in range(len(x)-1):
+        if x[j] <= t <= x[j+1]:
+            return y_piece(t, i=j)
+    return y_piece(t, i=len(x)-2)  # fallback for boundary
 
-t_span = [0, np.pi]
+t_span = [0.25, 0.499]
+
 
 print(f'{'='*80}')
 print(f''' {'='*80} 
-      This is problem DDETST H2 
+      This is problem 1.3.4 from Paul
       ''')
 
 methods = ['RKC3', 'RKC4', 'RKC5']
-# tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10]
+tolerances = [1e-2,  1e-4, 1e-6, 1e-8, 1e-10]
 # methods = ['RKC4', 'RKC5']
-tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
-
+# tolerances = [1e-2,  1e-4, 1e-6, 1e-8, 1e-10]
 
 for Tol in tolerances:
     print('===========================================================')
@@ -59,3 +76,4 @@ for Tol in tolerances:
         print('fails: ', solution.fails)
         print('feval: ', solution.feval)
         print('')
+

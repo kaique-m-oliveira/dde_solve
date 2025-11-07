@@ -22,7 +22,7 @@ def alpha(t, y):
 epsilon = 0
 t_span = [0, 4]
 
-Tol = 1e-7
+Tol = 1e-8
 solver = solve_ndde(t_span, f, alpha, alpha, phi, phi_t, method='RKC5', Atol=Tol, Rtol=Tol)
 
 # solver = solve_ndde(f, alpha, phi, t_span, beta=alpha,

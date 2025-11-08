@@ -34,6 +34,7 @@ for Tol in tolerances:
     for method in methods:
         solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
         print(f'method = {method}')
+        print('No analytical solution')
         print('steps: ', solution.steps)
         print('fails: ', solution.fails)
         print('feval: ', solution.feval)

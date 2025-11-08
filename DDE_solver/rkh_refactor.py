@@ -38,15 +38,10 @@ from scipy.optimize import minimize, minimize_scalar, root
 #     return eta, eta_t
 
 def linear_interpolant(tn, h, c2, yn, y2):
-    """
-    Linear interpolant passing through (tn, yn) and (tn + c2*h, y2).
-    yn, y2 are shape (ndim,) or (ndim,1). Returns functions that accept
-    scalar or array t and return shape (m, ndim) or (ndim,) for scalar.
-    """
+
     yn = np.atleast_1d(yn)
     y2 = np.atleast_1d(y2)
     dt2 = c2 * h
-    # slope shape (ndim,)
     slope = (y2 - yn) / dt2
 
     def eta(t):
@@ -56,7 +51,6 @@ def linear_interpolant(tn, h, c2, yn, y2):
         return np.squeeze(out)  # squeeze for scalar t
 
     def eta_t(t):
-        # derivative is constant; return shape (m, ndim) or (ndim,) for scalar
         t_arr = np.atleast_1d(t)
         out = np.tile(slope[None, :], (len(t_arr), 1))
         return np.squeeze(out)
@@ -65,22 +59,11 @@ def linear_interpolant(tn, h, c2, yn, y2):
 
 
 def quadratic_interpolant(tn, h, ci, z0, k1, Yi):
-    """
-    Quadratic interpolant defined by:
-        value at tn: z0 (shape (ndim,))
-        derivative at tn: k1 (shape (ndim,))  (this matches k1 = K_prev[0])
-        value at tn + ci*h: Yi (shape (ndim,))
-    Returns eta(t) and eta_t(t) as vectorized functions.
-    """
     z0 = np.atleast_1d(z0)
     k1 = np.atleast_1d(k1)
     Yi = np.atleast_1d(Yi)
 
     dt_target = ci * h
-    # Solve for quadratic coefficients per component:
-    # z(t) = A + B*dt + C*dt^2, with A=z0, B=k1, z(dt_target)=Yi.
-    # => C = (Yi - z0 - B*dt_target) / dt_target^2
-    # if dt_target == 0 this would be invalid; caller shouldn't pass ci==0 here.
     C = (Yi - z0 - k1 * dt_target) / (dt_target**2)
 
     def eta(t):
@@ -520,11 +503,11 @@ class RungeKutta:
         # print('y1 = ', self.y[1])
         # input('onestep rk4')
         if np.isnan(self.y[1]).any():
-            print('t = ', tn + h)
-            print('solution t', self.solution.t)
-            print('K', self.K)
-            print('shape', self.y[1].shape)
-            print(f'y1 {self.y[1]}')
+            # print('t = ', tn + h)
+            # print('solution t', self.solution.t)
+            # print('K', self.K)
+            # print('shape', self.y[1].shape)
+            # print(f'y1 {self.y[1]}')
             return False
 
         return True
@@ -534,11 +517,13 @@ class RungeKutta:
         max_iter = 12
         sc = self.Atol + np.abs(self.y[0]) * self.Rtol
 
+        # print('_____________________________fixed point____________________')
+        # print('t = ', self.t[0] + self.h)
+        # print('self.solution.t', self.solution.t)
+        # print('self.first_step', self.first_step)
         self.K_prev = self.K[0:self.n_stages["discrete_method"]].copy()
-        self.first_eta = True
-
-
         if self.first_step:
+            self.first_eta = True
             self.special_interpolant()
             self.first_eta = False
 
@@ -640,8 +625,16 @@ class RungeKutta:
     #         print('')
 
     def special_interpolant(self, eta_ov=None, eta_t_ov=None):
+        """Special interpolant used for first step, described on the paper from Enright and Hayashi"""
         # debug print optional
-        print('_________________________special___________________________')
+        # self.K_prev = self.K[0:self.n_stages["discrete_method"]].copy()
+        # print('_________________________special___________________________')
+        # print('t = ', self.t[0] + self.h)
+        # print('self.n_stages["discrete_method"]', self.n_stages["discrete_method"])
+        # print('K', self.K)
+        # print('calculated stages', self.stages_calculated)
+        # print('K_prev', self.K_prev)
+        # input('_________________________special___________________________')
 
         total_stages = self.A.shape[0]
         tn, h, yn = self.t[0], self.h, self.y[0]
@@ -651,20 +644,19 @@ class RungeKutta:
         c = self.c[:n_stages]
         A = self.A[:n_stages, :n_stages]
 
-        # ensure K_prev exists and has correct shape
-        if not hasattr(self, "K_prev"):
-            self.K_prev = np.zeros_like(self.K)
+        # # ensure K_prev exists and has correct shape
+        # if not hasattr(self, "K_prev"):
+        #     self.K_prev = np.zeros_like(self.K)
 
         # Stage 1 (Y1 = z_{n-1}(tn) and k1 uses history)
+        alpha1 = alpha(tn, yn)
+        Y_tilde1 = eta(alpha1)  # vectorized
         if not self.neutral:
-            alpha1 = alpha(tn, yn)
-            Yhist = eta(alpha1)  # vectorized
-            self.K_prev[0] = f(tn, yn, Yhist)
+            self.K_prev[0] = f(tn, yn, Y_tilde1)
         else:
             beta1 = self.problem.beta(tn, yn)
-            Yhist = eta(alpha1)
-            Zhist = self.solution.eta_t(beta1)
-            self.K_prev[0] = f(tn, yn, Yhist, Zhist)
+            Z_tilde1 = self.solution.eta_t(beta1)
+            self.K_prev[0] = f(tn, yn, Y_tilde1, Z_tilde1)
 
         # Stage 2: linear interpolant between (tn, yn) and (tn + c2*h, y2)
         t2 = tn + c[1] * h
@@ -672,6 +664,7 @@ class RungeKutta:
         alpha2 = alpha(t2, y2)               # may be scalar or array
         eta2, eta2_t = linear_interpolant(tn, h, c[1], yn, y2)
 
+        #TODO: A lot of safety precautions here need to be wrapped somewhere else 
         # vectorized selection: if alpha2 <= tn we query history eta, else eta2
         alpha2_arr = np.atleast_1d(alpha2)
         mask = alpha2_arr <= tn
@@ -755,12 +748,19 @@ class RungeKutta:
             self.solution.feval += 1
             self.stages_calculated = i + 1
 
+            # self.K_prev[i] = f(ti, yi, Y_tilde, Z_tilde)
+            # # safety fallback
+            # mask_nan = np.isnan(self.K_prev[i])
+            # if np.any(mask_nan):
+            #     print(f"NaN detected at stage {i}, replacing with K_prev[0]")
+            #     self.K_prev[i][mask_nan] = self.K_prev[0][mask_nan]
+
             # debug prints (optional)
-            print('yi', yi)
-            print('alphai', alpha_i)
-            print('Y_tilde', Y_tilde)
-            print('K', self.K_prev[i])
-            print('')
+            # print('yi', yi)
+            # print('alphai', alpha_i)
+            # print('Y_tilde', Y_tilde)
+            # print('calculated prev', self.K_prev)
+            # print('')
 
 
     def build_eta_0(self):
@@ -899,13 +899,13 @@ class RungeKutta:
         # theta = np.array([n*theta**(n-1) for n in range(pol_order)])
         K = self.K[0:self.n_stages["continuous_method"]]
         bs = (self.D @ theta).squeeze()
-        if np.isnan(bs).any():
-            print('tn ', tn)
-            print('yn', yn)
-            print('h', h)
-            print('theta before', tt)
-            print('theta', theta)
-            input('is nan')
+        # if np.isnan(bs).any():
+        #     print('tn ', tn)
+        #     print('yn', yn)
+        #     print('h', h)
+        #     print('theta before', tt)
+        #     print('theta', theta)
+        #     input('is nan')
         eta0 = bs @ K
         return eta0
 
@@ -995,6 +995,8 @@ class RungeKutta:
         if not success:
             self.h = self.h/2
             self.h_next = self.h
+            self.solution.steps += 1
+            self.solution.fails += 1
             return False
 
         self.build_eta_1()
@@ -1004,8 +1006,13 @@ class RungeKutta:
         self.new_eta_t = [self._eta_0_t, self._eta_1_t]
         self.error_est_method()
 
-        if np.isnan(self.K).any():
-            print('t = ', self.t[0])
+        # input(f'K calc {self.K}')
+        if np.isnan(self.K).any() or np.isinf(self.K).any():
+            print('diminuindo em t = ', self.t[0])
+            self.h = self.h/2
+            self.h_next = self.h
+            self.solution.steps += 1
+            self.solution.fails += 1
             return False
 
         discrete_disc_satisfied = self.discrete_disc_satistied()
@@ -1185,6 +1192,10 @@ class RungeKutta:
     def one_step_CRK(self, max_iter=15):
         iter = 0
         while self.h >= 10**-12 and iter <= max_iter:
+            # print('======================CR==========================')
+            # print('iter', iter)
+            # print('self.h', self.h, 'self.h_next', self.h_next)
+            # input('wtf is h here?')
             success = self.try_step_CRK()
             if success:
                 return True, self
@@ -1440,6 +1451,7 @@ class Solution:
         else:
             self.discs = [problem.t_span[0]]
 
+        self.status = "Running"
         self.eta_calls = 0
         self.eta_t_calls = 0
         self.t_next = None
@@ -1581,6 +1593,7 @@ class Solution:
                     self.breaking_discs[step.disc] = {-1 : -1, 1 : 1}
                     progress = step.investigate_branches()
                     if progress == "terminated":
+                        self.status = "terminated"
                         return "terminated"
                     elif progress == "one branch":
                         return "one branch"
@@ -1589,6 +1602,7 @@ class Solution:
                         return "branches"
 
         else:
+            self.status = "failed"
             return "failed"
 
         return "success"
@@ -1679,7 +1693,12 @@ def solve_dde(f, alpha, phi, t_span, method='RKC5', Atol = 1e-7, Rtol = 1e-7, ne
         recursive_integration(solution, solutionList)
         return solutionList
     elif branch_status == "terminated" or branch_status == "failed":
-        raise ValueError(f"solution failed duo to {branch_status}")
+        print('steps', solution.steps)
+        print('fails', solution.fails)
+        print('feval', solution.feval)
+        print(f"solution failed duo to {branch_status} at t = {solution.t[-1]}")
+        return solution
+        # raise ValueError(f"solution failed duo to {branch_status}")
 
     status = solution.update(onestep.one_step_CRK())
 
@@ -1689,7 +1708,8 @@ def solve_dde(f, alpha, phi, t_span, method='RKC5', Atol = 1e-7, Rtol = 1e-7, ne
     times = []
     calls = 0
     while t < tf:
-        h = min(h, tf - t)
+        if h is not None:
+            h = min(h, tf - t)
         # if h is None or tf - t is None:
         #     print('status', status)
         #     print('t', t)
@@ -1721,7 +1741,9 @@ def solve_dde(f, alpha, phi, t_span, method='RKC5', Atol = 1e-7, Rtol = 1e-7, ne
             print('steps', solution.steps)
             print('fails', solution.fails)
             print('feval', solution.feval)
-            raise ValueError(f"solution failed duo to {status} at t = {solution.t[-1]}")
+            print(f"solution failed duo to {status} at t = {solution.t[-1]}")
+            return solution
+            # raise ValueError(f"solution failed duo to {status} at t = {solution.t[-1]}")
 
         # h = min(h, tf - t)
         status = solution.update(onestep.one_step_CRK())
@@ -1729,6 +1751,7 @@ def solve_dde(f, alpha, phi, t_span, method='RKC5', Atol = 1e-7, Rtol = 1e-7, ne
         h = onestep.h_next
         t = solution.t[-1]
 
+    solution.status = "success"
     return solution
 
 
@@ -1749,7 +1772,7 @@ def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='RKC5', discs=[], Atol
     # input(f'Atol Rtol', problem.Atol, problem.Rtol)
 
     onestep = method(problem, solution, h, neutral=True)
-    # onestep.first_step = True
+    onestep.first_step = True
 
     #FIX:  REMOVING FIRST INVESTIGATION FOR TEST
     branch_status = onestep.first_step_investigate_branch()
@@ -1786,7 +1809,10 @@ def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='RKC5', discs=[], Atol
     times = []
     calls = 0
     while t < tf:
-        h = min(h, tf - t)
+
+        if h is not None:
+            h = min(h, tf - t)
+
         if status == "success":
             # onestep = RK4HHL(problem, solution, h, neutral=True)
             # onestep = RKC5(problem, solution, h, neutral=True)

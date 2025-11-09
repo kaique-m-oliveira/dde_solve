@@ -12,6 +12,7 @@ python DDETST_C4.py
 python DDETST_D1.py
 python DDETST_D2.py
 python DDETST_E1.py
+python DDETST_E2.py
 python DDETST_F1.py
 python DDETST_F2.py
 python DDETST_F3.py

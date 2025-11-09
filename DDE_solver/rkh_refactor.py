@@ -1791,11 +1791,13 @@ def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='RKC5', discs=[], Atol
 
     status = solution.update(onestep.one_step_CRK())
 
-    #FIX: REMOVING FIRST INVESTIGATION FOR TEST
     eta_t_left = solution.eta_t(t_span[0], limit_direction=[-1])
     eta_t_right = solution.eta_t(t_span[0], limit_direction=[1])
-    if abs(eta_t_left - eta_t_right) >= 100*np.max(Atol):
-        solution.breaking_discs[t_span[0]] = {-1: eta_t_left, 1: eta_t_right}
+    solution.breaking_discs[t_span[0]] = {-1: eta_t_left, 1: eta_t_right}
+
+    #FIX: REMOVING FIRST INVESTIGATION FOR TEST
+    # if abs(eta_t_left - eta_t_right) >= 100*np.max(Atol):
+    #     solution.breaking_discs[t_span[0]] = {-1: eta_t_left, 1: eta_t_right}
         # print('solution.discs', solution.discs)
         # print('eta_t_left', eta_t_left)
         # print('eta_t_right', eta_t_right)

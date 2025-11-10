@@ -1,14 +1,8 @@
 import numbers
-import random
-import time
 from bisect import bisect_left
 from copy import deepcopy
-from dataclasses import dataclass, field
 
-import matplotlib.pyplot as plt
 import numpy as np
-from scipy.integrate import solve_ivp
-from scipy.optimize import minimize, minimize_scalar, root
 
 
 def linear_interpolant(tn, h, c2, yn, y2):
@@ -245,7 +239,7 @@ class RungeKutta:
             results = np.empty((len(t), self.problem.ndim), dtype=float)
             for i in range(len(t)):
                 if t[i] <= self.t[0]:
-                    results[i] = self.eta(t[i])
+                    results[i] = self.solution.eta(t[i])
                 else:
                     if self.new_eta[1] is not None:
                         results[i] = self.new_eta[1](t[i])
@@ -254,7 +248,8 @@ class RungeKutta:
                     elif not self.first_eta:
                         results[i] = self._hat_eta_0(t[i])
                     else:
-                        results[i] = self.eta(t[i], ov=True)
+                        # results[i] = self.eta(t[i], ov=True)
+                        results[i] = self.solution.eta(t[i], ov=True)
             return np.squeeze(results)
         return eval
 
@@ -265,7 +260,7 @@ class RungeKutta:
             results = np.empty((len(t), self.problem.ndim), dtype=float)
             for i in range(len(t)):
                 if t[i] <= self.t[0]:
-                    results[i] = self.eta_t(t[i])
+                    results[i] = self.solution.eta_t(t[i])
                 else:
                     if self.new_eta[1] is not None:
                         results[i] = self.new_eta_t[1](t[i])
@@ -274,7 +269,7 @@ class RungeKutta:
                     elif not self.first_eta:
                         results[i] = self._hat_eta_0_t(t[i])
                     else:
-                        results[i] = self.eta_t(t[i], ov=True)
+                        results[i] = self.solution.eta_t(t[i], ov=True)
             return np.squeeze(results)
         return eval
 
@@ -374,7 +369,7 @@ class RungeKutta:
         total_stages = self.A.shape[0]
         self.K = np.zeros((total_stages, self.n), dtype=float)
         tn, h, yn = self.t[0], self.h, self.y[0]
-        eta = self.eta
+        eta = self.solution.eta
         f, alpha = self.problem.f, self.problem.alpha
         n_stages = self.n_stages["discrete_method"]
         c = self.c[:n_stages]
@@ -406,7 +401,7 @@ class RungeKutta:
                 beta_i = self.problem.beta(ti, yi)
 
                 if np.all(beta_i <= np.full(self.ndelays, tn)):
-                    Z_tilde = self.eta_t(beta_i)
+                    Z_tilde = self.solution.eta_t(beta_i)
 
                 elif eta_t_ov is not None:
                     Z_tilde = eta_t_ov(beta_i)
@@ -467,7 +462,7 @@ class RungeKutta:
 
         total_stages = self.A.shape[0]
         tn, h, yn = self.t[0], self.h, self.y[0]
-        eta = self.eta
+        eta = self.solution.eta
         f, alpha = self.problem.f, self.problem.alpha
         n_stages = self.n_stages["discrete_method"]
         c = self.c[:n_stages]

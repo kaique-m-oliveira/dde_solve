@@ -1,1 +1,1 @@
-DDe solver for differential equations, currently in development.
+Numerical solver for delay differential equations (DDEs) and neutral delay differential equations (NDDEs)

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dde-solve"  # this is the PyPI package name
 version = "0.1.0"
-description = "Numerical solver for delay differential equations (DDEs)."
+description = "Numerical solver for delay differential equations (DDEs) and neutral delay differential equations (NDDEs)."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }

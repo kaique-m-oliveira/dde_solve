@@ -75,8 +75,10 @@ def get_initial_step(problem, solution, Atol, Rtol, order, neutral = False):
 
     if not neutral:
         f0 = f(t0, y0, eta(alpha0))
+        solution.feval += 1
     else:
         f0 = f(t0, y0, eta(alpha0), eta(beta0))
+        solution.feval += 1
 
     d0 = norm(y0 / scale)
     d1 = norm(f0 / scale)
@@ -95,6 +97,7 @@ def get_initial_step(problem, solution, Atol, Rtol, order, neutral = False):
 
     if not neutral:
         f1 = f(t0 + h0, y1, eta_alpha1)
+        solution.feval += 1
     else:
 
         beta1 = beta(t0 + h0, y1)
@@ -104,6 +107,7 @@ def get_initial_step(problem, solution, Atol, Rtol, order, neutral = False):
             eta_beta1 = y0 + ((beta1 - t0)/h0)*(y1 - y0)
 
         f1 = f(t0 + h0, y1, eta_alpha1, eta_beta1)
+        solution.feval += 1
 
     d2 = norm((f1 - f0) / scale) / h0
 
@@ -1373,7 +1377,7 @@ def integrate_branch(method, solution, limit_direction):
     return "Success", solution
 
 
-def solve_dde(f, alpha, phi, t_span, method='RKC5', Atol = 1e-7, Rtol = 1e-7, discs=[]):
+def solve_dde(t_span, f, alpha, phi, method='RKC5', Atol = 1e-7, Rtol = 1e-7, discs=[]):
     problem = Problem(f, alpha, phi, t_span, Atol, Rtol)
     solution = Solution(problem, discs=discs)
     t, tf = problem.t_span

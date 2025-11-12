@@ -32,7 +32,7 @@ for Tol in tolerances:
     print('===========================================================')
     print(f'Tol = {Tol} \n')
     for method in methods:
-        solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+        solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
 
         
         print(f'method = {method}')

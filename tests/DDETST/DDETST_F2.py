@@ -69,12 +69,19 @@ for Tol in tolerances:
 
         max_diff = 0
         for i in range(len(solution.t) - 1):
-            tt = np.linspace(solution.t[i], solution.t[i + 1], 100)
+            tt = np.linspace(solution.t[i], solution.t[i + 1], 100, endpoint=True)
             sol = np.array([solution.eta(i) for i in tt])
             realsol = np.array([real_sol(i) for i in tt])
             max_diff = np.max(np.abs(realsol - sol))
             if max_diff > max_diff:
                 max_diff = max_diff
+
+            # if len(solution.discs) > 1:
+            #     print('tt', tt)
+            #     print('discs', solution.discs)
+            #     print('t[i] = ', solution.t[i])
+            #     print('t[i+1] = ', solution.t[i+1])
+            #     input(solution.discs[1] in tt)
 
         exact_discs = x[1:len(solution.discs) + 1]
         disc_diff = np.array(solution.discs) - np.array(exact_discs)
@@ -88,13 +95,13 @@ for Tol in tolerances:
         print('no. discs found: ', len(solution.discs))
         print('diff discs found: ', disc_diff)
         print('')
-        t_plot = np.linspace(t_span[0], t_span[1], 200)
-        eta = [solution.eta(t) for t in t_plot]
-        eta_t = [solution.eta_t(t) for t in t_plot]
-        exact = [real_sol(t) for t in t_plot]
-        plt.plot(t_plot, eta, color='green', label='eta')
-        plt.plot(t_plot, eta_t, color='yellow', label='eta_t')
-        plt.plot(t_plot, exact, color='blue', label='exact')
-        plt.legend()
-        plt.show()
 
+        # t = np.array(solution.t)      
+        # h = np.diff(t)
+        #
+        # plt.plot(t[1:], h, marker='o')
+        # plt.scatter(exact_discs[1:], np.zeros_like(exact_discs[1:]))
+        # plt.xlabel("t_n")
+        # plt.ylabel("Step size h_n = t_n - t_{n-1}")
+        # plt.title("Adaptive step sizes")
+        # plt.show()

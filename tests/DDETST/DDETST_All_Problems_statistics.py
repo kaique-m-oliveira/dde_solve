@@ -10,7 +10,7 @@ def A1(method, Tol):
     def alpha(t, y):
         return t - 14
     t_span = [0, 500]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 def A2(method, Tol):
@@ -25,7 +25,7 @@ def A2(method, Tol):
     def alpha(t, y):
         return t - 20
     t_span = [0, 100]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 def B1(method, Tol):
@@ -36,7 +36,7 @@ def B1(method, Tol):
     def alpha(t, y):
         return np.exp(1 - 1/t)
     t_span = [0.1, 10]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 def B2(method, Tol):
@@ -48,7 +48,7 @@ def B2(method, Tol):
     def alpha(t, y):
         return t / 2.0
     t_span = [0, 2*np.log(66)]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 def C1(method, Tol):
@@ -59,7 +59,7 @@ def C1(method, Tol):
     def alpha(t, y):
         return t - 1 - abs(y)
     t_span = [0, 30]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 
@@ -77,7 +77,7 @@ def C2(method, Tol):
         y1, y2 = y
         return t - y2
     t_span = [0, 40]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 
@@ -114,7 +114,7 @@ def C3(method, Tol):
         y1, y2, y3 = y
         return [t - T1, t - T1 - y3]
     t_span = [0, 300]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 
@@ -145,7 +145,7 @@ def C4(method, Tol):
         y1, y2, y3 = y
         return [t - T1, t - T1 - y3]
     t_span = [0, 100]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 
@@ -166,7 +166,7 @@ def D1(method, Tol):
 
 
     t_span = [0.1, 5]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 
@@ -201,7 +201,7 @@ def D2(method, Tol):
         y1, y2, y3, y4 = y
         return t - y4
     t_span = [0.0, 40.0]
-    solution = solve_dde(f, alpha, phi, t_span, method = method, Atol=Tol, Rtol=Tol)
+    solution = solve_dde(t_span, f, alpha, phi, method = method, Atol=Tol, Rtol=Tol)
     return solution
 
 def E1(method, Tol):
@@ -537,25 +537,52 @@ def H4(method, Tol):
 problems = [A1, A2, B1, B2, C1, C2, C3, C4, D1, D2, E1, E2, F1, F2, F3, F4, F5, G1, G2, H1, H2, H3, H4]
 
 methods = ['RKC3', 'RKC4', 'RKC5']
-tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
+tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12, 1e-14]
+# tolerances = [1e-14]
+# methods = ['RKC5']
+# methods = ['RKC4', 'RKC5']
+# tolerances = [1e-12]
 
+# easy_bench_mark = []
+# for problem in problems:
+#     easy_bench_mark.append(problem('RKC5', 1e-12))
 
 for Tol in tolerances:
     print('======================== Overall Statistcs for all DDETST ===========================')
     print(f'Tol = {Tol} \n')
     for method in methods:
-        if Tol < 1e-6 and method == 'RKC3':
-            continue
+        # if Tol < 1e-6 and method == 'RKC3':
+        #     continue
         total_steps = 0
         total_fails = 0
         total_feval = 0
         print(f'method = {method}')
-        iter = 0 
-        for problem in problems:
+        for i, problem in enumerate(problems):
             solution = problem(method, Tol)
             total_steps += solution.steps
             total_fails += solution.fails
             total_feval += solution.feval
+            # tf = solution.t[-1]
+            # bench_sol = easy_bench_mark[i].eta(tf)
+            # aproxx = solution.eta(tf)
+            # diff_end_step = np.linalg.norm(aproxx - bench_sol )
+            # if diff_end_step > 0.1 :
+            #     print('problem', problem)
+            #     print(f' tf = {tf}:')
+            #     print(f'diff is at tf = {diff_end_step}')
+            #     print('benchsol', bench_sol)
+            #     print('aproxx', aproxx)
+            #     print('')
+            # print('total steps: ', total_steps)
+            # print('total fails: ', total_fails)
+            # print('total feval: ', total_feval)
+            # print('iter', iter)
+            # print('problem', problem)
+            # input('')
+            if solution.status == 'failed':
+                print('iter', iter)
+                print('problem',problem)
+                input('failed')
         print('total steps: ', total_steps)
         print('total fails: ', total_fails)
         print('total feval: ', total_feval)

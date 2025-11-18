@@ -1,4 +1,6 @@
-from DDE_solve.integrator import *
+import numpy as np
+
+from dde_solve import *
 
 problems = []
 

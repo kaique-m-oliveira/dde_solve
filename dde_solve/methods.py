@@ -1,4 +1,4 @@
-from DDE_solve.cerk_step import *
+from .cerk_step import *
 
 
 class CERK3(RungeKutta):

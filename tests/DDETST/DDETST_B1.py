@@ -1,6 +1,6 @@
 import numpy as np
 
-from DDE_solver.rkh_refactor import *
+from dde_solve import *
 
 
 def f(t, y, x):
@@ -17,10 +17,7 @@ def real_sol(t):
 
 t_span = [0.1, 10]
 
-print('alpha0', alpha(0.5, phi(0.5)))
-
-
-methods = ['RKC3', 'RKC4','RKC5']
+methods = ['CERK3', 'CERK4','CERK5']
 tolerances = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-8, 1e-10, 1e-12]
 # methods = ['RKC4', 'RKC5']
 # tolerances = [1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
@@ -37,9 +34,9 @@ for Tol in tolerances:
             tt = np.linspace(solution.t[i], solution.t[i + 1], 100)
             sol = np.array([solution.eta(i) for i in tt])
             realsol = np.array([real_sol(i) for i in tt])
-            max_diff = np.max(np.abs(realsol - sol))
-            if max_diff > max_diff:
-                max_diff = max_diff
+            max_diff_ = np.max(np.abs(realsol - sol))
+            if max_diff_ > max_diff:
+                max_diff = max_diff_
         
         print(f'method = {method}')
         print('max diff', max_diff)

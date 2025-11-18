@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dde-solve
-Version: 0.1.0
+Version: 0.1.1
 Summary: Numerical solver for delay differential equations (DDEs) and neutral delay differential equations (NDDEs).
 Author-email: Kaique Oliveira <your_email@example.com>
 License: MIT License
@@ -25,8 +25,8 @@ License: MIT License
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
         
-Project-URL: Homepage, https://github.com/kaique-m-oliveira/DDE_solve
-Project-URL: Repository, https://github.com/kaique-m-oliveira/DDE_solve
+Project-URL: Homepage, https://github.com/kaique-m-oliveira/dde_solve
+Project-URL: Repository, https://github.com/kaique-m-oliveira/dde_solve
 Keywords: dde,delay differential equations,numerical methods
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License

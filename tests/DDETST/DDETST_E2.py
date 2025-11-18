@@ -1,6 +1,6 @@
 import numpy as np
 
-from DDE_solver.rkh_refactor import *
+from dde_solve import *
 
 # -------------------------------------------------------------------
 # Problem E2: Logistic Gauss-type predator–prey system (Kuang, 1991)

@@ -1,6 +1,6 @@
 import numpy as np
 
-from DDE_solver.rkh_refactor import *
+from dde_solve import *
 
 r, c = np.pi/np.sqrt(3) + 1/20, np.sqrt(3)/(2*np.pi) - 1/25
 def f(t, y, x, z):

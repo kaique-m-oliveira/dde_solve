@@ -1,6 +1,6 @@
 import numpy as np
 
-from DDE_solver.rkh_refactor import *
+from dde_solve import *
 
 # ---- Parameters ----
 L3 = 0.4

@@ -2,8 +2,8 @@ from bisect import bisect_left
 
 import numpy as np
 
-from DDE_solve.methods import *
-from DDE_solve.tools import *
+from .methods import *
+from .tools import *
 
 METHODS = {'CERK3': CERK3,
            'CERK4': CERK4,

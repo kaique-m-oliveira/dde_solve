@@ -1,6 +1,6 @@
 import numpy as np
 
-from DDE_solve.tools import *
+from .tools import *
 
 
 class RungeKutta:

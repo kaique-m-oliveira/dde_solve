@@ -1,1 +1,3 @@
-DDE_solve
+dde_solve
+dist
+tests

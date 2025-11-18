@@ -1,6 +1,6 @@
 import numpy as np
 
-from DDE_solver.rkh_refactor import *
+from dde_solve import *
 
 # Parameters
 s0_hat = 0.00372

@@ -21,22 +21,23 @@ def alpha(t, y):
     return t*y**2
 
 
-epsilon = 0
 t_span = [0.25, 5]
 
 
-Tol = 1e-9
-solver = solve_ndde(t_span, f, alpha, alpha, phi, phi_t, method='RKC5', discs=[], Atol=Tol, Rtol=Tol)
+methods = ['RKC3', 'RKC4', 'RKC5']
+tolerances = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-8, 1e-10, 1e-12]
 
 
 
-print(f'{'='*80}')
-print('paper radar computing breaking points')
-tt = np.linspace(t_span[0], t_span[1], 100)
-sol = [solver.eta(i) for i in tt]
-sol_t = [solver.eta_t(i) for i in tt]
+for Tol in tolerances:
+    print('===========================================================')
+    print(f'Tol = {Tol} \n')
+    for method in methods:
+        solution = solve_ndde(t_span, f, alpha, alpha, phi, phi_t, method=method, Atol=Tol, Rtol=Tol)
+        print(f'method = {method}')
+        print('steps: ', solution.steps)
+        print('fails: ', solution.fails)
+        print('feval: ', solution.feval)
+        print('end point: ', solution.t[-1])
+        print('')
 
-plt.plot(tt, sol, color="blue", label='eta')
-plt.plot(tt, sol_t, color="red", label='eta_t')
-plt.legend()
-plt.show()

@@ -1,4 +1,4 @@
-from DDE_solver.rkh_refactor import *
+from DDE_solve.integrator import *
 
 problems = []
 
@@ -536,7 +536,7 @@ def H4(method, Tol):
 
 problems = [A1, A2, B1, B2, C1, C2, C3, C4, D1, D2, E1, E2, F1, F2, F3, F4, F5, G1, G2, H1, H2, H3, H4]
 
-methods = ['RKC3', 'RKC4', 'RKC5']
+methods = ['CERK3', 'CERK4', 'CERK5']
 tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
 
 

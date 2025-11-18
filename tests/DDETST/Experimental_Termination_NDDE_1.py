@@ -28,6 +28,9 @@ t_span = [0, 4]
 methods = ['RKC3', 'RKC4', 'RKC5']
 tolerances = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-8, 1e-10, 1e-12]
 
+ref_sol = solve_ndde(t_span, f, alpha, alpha, phi, phi_t, method=RKC5, Atol=1e-14, Rtol=1e-14)
+end_point = ref_sol.t[-1]
+
 
 for Tol in tolerances:
     print('===========================================================')
@@ -38,5 +41,7 @@ for Tol in tolerances:
         print('steps: ', solution.steps)
         print('fails: ', solution.fails)
         print('feval: ', solution.feval)
+        print('end point: ', solution.t[-1])
+        print('end point diff: ', abs(solution.t[-1] - end_point))
         print('')
 

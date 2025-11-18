@@ -119,13 +119,12 @@ solution = solve_dde(t_span, f, alpha, phi)
 $$
 \begin{aligned}
 y'(t) &= \cos(t)\bigl(1 + y(t y^2(t))\bigr)
-
-* L_3 y(t) y'(t y^2(t)) \
-  &\quad + (1-L_3)\sin(t)\cos(t\sin^2 t) - \sin(t + t\sin^2 t), \
-  t_0 &= 0, \quad t_f = \pi, \
-  \phi(0) &= 0, \quad \phi'(t) = 1.
-  \end{aligned}
-  $$
+L_3 y(t) y'(t y^2(t)) \
+        &\quad + (1-L_3)\sin(t)\cos(t\sin^2 t) - \sin(t + t\sin^2 t), \
+        t_0 &= 0, \quad t_f = \pi, \
+        \phi(0) &= 0, \quad \phi'(t) = 1.
+        \end{aligned}
+        $$
 
 Analytical solution:
 $$y(t) = \sin(t).$$

@@ -162,7 +162,7 @@ solution = solve_ndde(t_span, f, alpha, beta, phi, phi_t)
 
 # Installation
 
-(Replace with your pip installation instructions once published.)
+pip install dde-solve
 
 ---
 
@@ -171,22 +171,3 @@ solution = solve_ndde(t_span, f, alpha, beta, phi, phi_t)
 MIT License.
 See the `LICENSE` file for details.
 
-```
-
----
-
-# Notes
-
-### 1. GitHub supports **only** `$...$` and `$$...$$`
-- All your previous `\begin{equation}` and `\begin{aligned}` blocks were invisible.  
-- I wrapped everything into `$$ ... $$` so **GitHub will render it immediately**.
-
-### 2. No Jekyll, no MathJax, no configuration is needed  
-This README works *as-is* in any GitHub repository.
-
-### 3. If you want, I can rewrite the README in a more polished/research-style tone.
-
----
-
-If you want me to integrate code examples, add API documentation, or generate a PyPI-ready README, tell me and I’ll extend it.
-```

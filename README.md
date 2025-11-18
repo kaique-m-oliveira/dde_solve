@@ -14,32 +14,32 @@ Numerical integrator for problems of the following kind.
 
 ### **Delay differential equation (DDE)**
 
-[
+\[
 \begin{cases}
 y'(t)=f\bigl(t,,y(t),,y(\alpha_1(t,y(t))),\dots,y(\alpha_r(t,y(t)))\bigr), & t\ge t_0,[3pt]
 y(t)=\phi(t), & t\le t_0,
 \end{cases}
-]
+\]
 
-where (y,f,\phi:\mathbb{R}\to\mathbb{R}^d) and each delay (\alpha_i) satisfies
+where \(y,f,\phi:\mathbb{R}\to\mathbb{R}^d\) and each delay \(\alpha_i\) satisfies
 
-[
+\[
 \alpha_i(t,y(t))\le t .
-]
+\]
 
 ---
 
 ### **Neutral delay differential equation (NDDE)**
 
-[
+\[
 \begin{cases}
-y'(t)=f\bigl(t,, y(t),, y(\alpha_1(t,y(t))),\dots, y(\alpha_r(t,y(t))), {}[3pt]
+y'(t)=f\bigl(t,, y(t),, y(\alpha_1(t,y(t))),\dots, y(\alpha_r(t,y(t))), [3pt]
 \qquad\qquad y'(\beta_1(t,y(t))),\dots,y'(\beta_s(t,y(t)))\bigr), & t\ge t_0,[3pt]
 y(t)=\phi(t), & t\le t_0,
 \end{cases}
-]
+\]
 
-with (y,f,\phi:\mathbb{R}\to\mathbb{R}^d) and delays satisfying (\alpha_i(t,y(t))\le t), (\beta_i(t,y(t))\le t).
+with \(y,f,\phi:\mathbb{R}\to\mathbb{R}^d\) and delays satisfying \(\alpha_i(t,y(t))\le t\), \(\beta_i(t,y(t))\le t\).
 
 ---
 
@@ -57,16 +57,16 @@ pip install dde-solve
 
 **Problem B1 - DDETST (Neves, 1975)**
 
-[
+\[
 \begin{aligned}
 y'(t) &= 1 - y(\exp(1 - 1/t)),\
 t_0 &= 0.1,\quad t_f = 10,\
 \phi(t) &= \ln(t), \qquad 0<t\le 0.1 .
 \end{aligned}
-]
+\]
 
-Analytic solution: (y(t)=\ln(t)).
-Vanishing delay at (t=1).
+Analytic solution: \(y(t)=\ln(t)\).
+Vanishing delay at \(t=1\).
 
 ```python
 import numpy as np
@@ -96,18 +96,17 @@ plt.show()
 
 **Problem D1 - DDETST (Neves, 1975)**
 
-[
+\[
 \begin{aligned}
 y_1'(t)&= y_2(t),\
 y_2'(t)&= -y_2(\exp(1-y_2(t))),y_2^2(t),\exp(1-y_2(t)),\
 \phi_1(t)&=\ln(t),\quad
 \phi_2(t)=1/t .
 \end{aligned}
-]
+\]
 
-Analytic solution:
-(y_1(t)=\ln(t)), (y_2(t)=1/t).
-Vanishing delay at (t=1).
+Analytic solution: \(y_1(t)=\ln(t)\), \(y_2(t)=1/t\).
+Vanishing delay at \(t=1\).
 
 ```python
 import numpy as np
@@ -137,19 +136,19 @@ solution = solve_dde(t_span, f, alpha, phi)
 
 **Problem H2 - DDETST (Hayashi, 1996)**
 
-[
+\[
 \begin{aligned}
 y'(t) &= \cos(t)\bigl(1+y(t,y^2(t))\bigr)
 + L_3 y(t) y'(t,y^2(t))\
 &\quad + (1-L_3)\sin(t)\cos(t\sin^2(t))
 -\sin(t+t\sin^2(t)),
 \end{aligned}
-]
+\]
 
 with
-(L_3 = 0.1),
-(\phi(0)=0), (\phi'(t)=1),
-analytic solution (y(t)=\sin(t)).
+\(L_3 = 0.1\),
+\(\phi(0)=0\), \(\phi'(t)=1\),
+analytic solution \(y(t)=\sin(t)\).
 
 ```python
 import numpy as np

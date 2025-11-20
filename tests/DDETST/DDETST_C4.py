@@ -48,7 +48,7 @@ def alpha(t, y):
 t_span = [0, 100]
 
 
-methods = ['RKC3', 'RKC4', 'RKC5']
+methods = ['CERK3', 'CERK4', 'CERK5']
 tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
 
 

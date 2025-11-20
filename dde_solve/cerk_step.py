@@ -148,7 +148,6 @@ class RungeKutta:
                     self.disc_position = sign_change_beta
                     self.get_disc(beta, old_disc)
                     return True
-
         return False
 
     def get_disc(self, delay, old_disc):
@@ -161,7 +160,7 @@ class RungeKutta:
         for idx in indices[:]:
             def d_zeta_y1(t):
                 self.h = t - self.t[0]
-                self.one_step_RK4()
+                self.one_step_RK()
                 y1 = self.y[1]
                 return delay(t, y1)[idx] - old_disc
 
@@ -181,7 +180,6 @@ class RungeKutta:
         old_disc = self.old_disc
         delay, idx = self.disc_delay_and_idx
 
-        
         def d_zeta(t):
             return delay(t, eta(t))[idx] - old_disc
 
@@ -190,7 +188,7 @@ class RungeKutta:
         else:
             return False
 
-    def one_step_RK4(self, eta_ov=None, eta_t_ov=None):
+    def one_step_RK(self, eta_ov=None, eta_t_ov=None):
 
         total_stages = self.A.shape[0]
         self.K = np.zeros((total_stages, self.n), dtype=float)
@@ -266,7 +264,7 @@ class RungeKutta:
 
             self.first_eta = False
 
-        self.one_step_RK4(eta_ov=self.eeta, eta_t_ov=self.eeta_t)
+        self.one_step_RK(eta_ov=self.eeta, eta_t_ov=self.eeta_t)
         self.first_eta = False
 
         for i in range(max_iter):
@@ -280,7 +278,7 @@ class RungeKutta:
 
             # prepare next iteration: freeze eta from previous K
             self.K_prev = K_new.copy()
-            self.one_step_RK4(eta_ov=self.eeta, eta_t_ov=self.eeta_t)
+            self.one_step_RK(eta_ov=self.eeta, eta_t_ov=self.eeta_t)
 
         return False
 
@@ -575,7 +573,7 @@ class RungeKutta:
             return False
 
     def try_step_CRK(self):
-        success = self.one_step_RK4()
+        success = self.one_step_RK()
         if not success:
             self.h = self.h/2
             self.h_next = self.h

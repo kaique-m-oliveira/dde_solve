@@ -3,8 +3,6 @@ import numpy as np
 from dde_solve import *
 
 
-# def f(t, y, x, z):
-#     return -4*t*y**2 / 4 + np.log(np.cos(2*t))**2 + np.tan(2*t) + 0.5*np.arctan(z)
 def f(t, y, x, z):
     return -(4 * t * y**2) / (4 + (np.log(np.cos(2*t)))**2) + np.tan(2*t) + 0.5 * np.arctan(z)
 
@@ -29,12 +27,8 @@ def real_sol(t):
 
 t_span = [0, 0.225*np.pi]
 
-print(f'{'='*80}')
-print(f''' {'='*80} 
-      This is problem 1.3.4 from Paul
-      ''')
 
-methods = ['RKC3', 'RKC4', 'RKC5']
+methods = ['CERK3', 'CERK4', 'CERK5']
 tolerances = [1e-2,  1e-4, 1e-6, 1e-8, 1e-10]
 
 

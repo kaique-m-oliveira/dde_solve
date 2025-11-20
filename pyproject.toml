@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dde-solve"  
-version = "0.1.1"
+version = "0.1.2"
 description = "Numerical solver for delay differential equations (DDEs) and neutral delay differential equations (NDDEs)."
 readme = "README.md"
 requires-python = ">=3.8"

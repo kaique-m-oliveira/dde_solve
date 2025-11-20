@@ -320,11 +320,11 @@ def solve_dde(t_span, f, alpha, phi, method='CERK5', Atol = 1e-7, Rtol = 1e-7, d
     return solution
 
 
-def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='RKC5', discs=[], Atol=1e-7, Rtol=1e-7):
+def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='CERK5', discs=[], Atol=1e-7, Rtol=1e-7):
     problem = Problem(f, alpha, phi, t_span, Atol = Atol, Rtol = Rtol, beta = beta, phi_t = phi_t, neutral=True)
     solution = Solution(problem, discs=discs, neutral=True)
     t, tf = problem.t_span
-
+    default_investigation = discs
 
     if method in METHODS:
         method = METHODS[method]
@@ -338,19 +338,21 @@ def solve_ndde(t_span, f, alpha, beta, phi, phi_t, method='RKC5', discs=[], Atol
     onestep = method(problem, solution, h, neutral=True)
     onestep.first_step = True
 
-    branch_status = onestep.first_step_investigate_branch()
+    #Not doing default termination investigation 
+    if default_investigation:
+        branch_status = onestep.first_step_investigate_branch()
 
-    if branch_status == "one branch":
-        limit_direction = onestep.limit_direction
-        onestep.eta = lambda t: solution.eta(
-            t, limit_direction=limit_direction)
-    elif branch_status == "branches":
-        solutionList = SolutionList()
-        solution.limit_directions = onestep.limit_directions
-        recursive_integration(method, solution, solutionList)
-        return solutionList
-    elif branch_status == "terminated" or branch_status == "failed":
-        raise ValueError(f"solution failed duo to {branch_status}")
+        if branch_status == "one branch":
+            limit_direction = onestep.limit_direction
+            onestep.eta = lambda t: solution.eta(
+                t, limit_direction=limit_direction)
+        elif branch_status == "branches":
+            solutionList = SolutionList()
+            solution.limit_directions = onestep.limit_directions
+            recursive_integration(method, solution, solutionList)
+            return solutionList
+        elif branch_status == "terminated" or branch_status == "failed":
+            raise ValueError(f"solution failed duo to {branch_status}")
 
     status = solution.update(onestep.one_step_CRK())
 

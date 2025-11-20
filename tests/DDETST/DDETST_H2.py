@@ -47,9 +47,9 @@ for Tol in tolerances:
             tt = np.linspace(solution.t[i], solution.t[i + 1], 100)
             sol = np.array([solution.eta(i) for i in tt])
             realsol = np.array([real_sol(i) for i in tt])
-            max_diff = np.max(np.abs(realsol - sol))
-            if max_diff > max_diff:
-                max_diff = max_diff
+            max_diff_ = np.max(np.abs(realsol - sol))
+            if max_diff_ > max_diff:
+                max_diff = max_diff_
         
         print(f'method = {method}')
         print('max diff', max_diff)

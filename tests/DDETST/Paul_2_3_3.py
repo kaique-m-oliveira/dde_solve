@@ -1,27 +1,22 @@
 import numpy as np
-
 from DDE_solver.rkh_refactor import *
 
 
-# Heaviside function
 def H(t):
     return np.where(t < 0, 0.0, 1.0)
 
-# Delays
 def alpha(t, y):
-    return 0.5 * t  # for the state delay y(½t)
+    return 0.5 * t  
 
 def beta(t, y):
-    return t - np.pi  # for the derivative delay y'(t - π)
+    return t - np.pi  
 
-# History functions
 def phi(t):
-    return 0.0  # y(t) = 0 for t ≤ 0
+    return 0.0  
 
 def phi_t(t):
-    return 0.0  # derivative also 0
+    return 0.0  
 
-# Right-hand side of the DDE
 def f(t, y, x, z):
     """
     y'(t) = 1 - 2*x**2
@@ -31,19 +26,13 @@ def f(t, y, x, z):
     """
     return 1 - 2 * x**2 - (1 + np.cos(t)) * H(t - np.pi) * (1 - 2 * x**2) - (1 + np.cos(t)) * z
 
-# Analytical solution
 def real_sol(t):
     return np.sin(t)
 
-# Integration interval
 t_span = [0.0, 4 * np.pi]
 
-print(f'{'='*80}')
-print(f''' {'='*80} 
-      This is problem 1.3.4 from Paul
-      ''')
 
-methods = ['RKC3', 'RKC4', 'RKC5']
+methods = ['CERK3', 'CERK4', 'CERK5']
 tolerances = [1e-2,  1e-4, 1e-6, 1e-8, 1e-10]
 
 
@@ -58,9 +47,9 @@ for Tol in tolerances:
             tt = np.linspace(solution.t[i], solution.t[i + 1], 100)
             sol = np.array([solution.eta(i) for i in tt])
             realsol = np.array([real_sol(i) for i in tt])
-            max_diff = np.max(np.abs(realsol - sol))
-            if max_diff > max_diff:
-                max_diff = max_diff
+            max_diff_ = np.max(np.abs(realsol - sol))
+            if max_diff_ > max_diff:
+                max_diff = max_diff_
         
         print(f'method = {method}')
         print('max diff', max_diff)

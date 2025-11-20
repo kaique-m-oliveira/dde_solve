@@ -1,5 +1,4 @@
 import numpy as np
-
 from DDE_solver.rkh_refactor import *
 
 
@@ -24,14 +23,8 @@ def real_sol(t):
 t_span = [1.0, np.e**2]
 
 
-print(f'{'='*80}')
-print(f''' {'='*80} 
-      This is problem 1.1.10 from Paul
-      ''')
 
-methods = ['RKC3', 'RKC4', 'RKC5']
-tolerances = [1e-3, 1e-4, 1e-5, 1e-6, 1e-8, 1e-10]
-# methods = ['RKC5']
+methods = ['CERK3', 'CERK4', 'CERK5']
 tolerances = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-8, 1e-10, 1e-12]
 
 

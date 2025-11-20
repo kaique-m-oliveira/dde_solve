@@ -1,6 +1,7 @@
 import numpy as np
 
-from dde_solve import *
+# from dde_solve import *
+from dde_solve.integrator import *
 
 
 def f(t, y, x, z):
@@ -28,7 +29,7 @@ def real_sol(t):
 t_span = [0, 1]
 
 methods = ['CERK3', 'CERK4', 'CERK5']
-tolerances = [1e-2,  1e-4, 1e-6, 1e-8, 1e-10]
+tolerances = [1e-2,  1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
 
 for Tol in tolerances:
     print('===========================================================')

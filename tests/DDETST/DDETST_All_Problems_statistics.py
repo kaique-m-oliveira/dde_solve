@@ -410,37 +410,38 @@ tolerances = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
 
 
 for Tol in tolerances:
-    print('======================== Overall Statistcs for all DDETST ===========================')
-    print(f'Tol = {Tol} \n')
+    print(f'=====================Overall Statistcs for all DDETST for Tol = {Tol}===========================')
     for method in methods:
 
         total_steps = 0
         total_fails = 0
         total_feval = 0
-        print(f'method = {method}\n')
         for problem_name, problem in problems.items():
             # print(f' Problem: {problem_name}')
             solution, real_solution = problem(method, Tol)
             total_steps += solution.steps
             total_fails += solution.fails
             total_feval += solution.feval
+            print(f'method = {method}')
+            print(f'Tol = {Tol}')
+            print('problem = ', problem_name)
             if solution.status == 'failed':
                 print('iter', iter)
                 print('problem', problem)
                 input('failed')
-            # if real_solution is None:
-            #     print('No analitical solution')
-            # else:
-            #     real_solution_at_grid = np.array([real_solution(t) for t in solution.t])
-            #     approx_solution_at_grid = np.array([solution.eta(t) for t in solution.t])
+            if real_solution is None:
+                print('No analitical solution')
+            else:
+                real_solution_at_grid = np.array([real_solution(t) for t in solution.t])
+                approx_solution_at_grid = np.array([solution.eta(t) for t in solution.t])
                 # print('----')
                 # print('real_sol', real_solution_at_grid)
                 # print('----')
                 # print('aprox', approx_solution_at_grid)
                 # print('----')
-                # grid_error = np.max(np.abs(real_solution_at_grid - approx_solution_at_grid))
-                # print('grid error: ', grid_error)
-        print('total steps: ', total_steps)
-        print('total fails: ', total_fails)
-        print('total feval: ', total_feval)
-        print('')
+                grid_error = np.max(np.abs(real_solution_at_grid - approx_solution_at_grid))
+                print('grid error: ', grid_error)
+            print('total steps: ', total_steps)
+            print('total fails: ', total_fails)
+            print('total feval: ', total_feval)
+            print('')

@@ -53,10 +53,11 @@ class Solution:
         def eval(t, ov=ov, limit_direction=limit_direction):
             self.eta_calls += 1
             t = np.atleast_1d(t)  # accept scalar or array
+            eps = np.finfo(float).eps
             results = np.empty((len(t), self.problem.ndim), dtype=float)
             for i in range(len(t)):
                 idx = bisect_left(self.t, t[i])
-                if t[i] <= self.t[0]:
+                if t[i] <= self.t[0] + 2*eps:
                     if limit_direction is not None:
                         if limit_direction[i] != 0:
                             if t[i] in self.breaking_discs:
@@ -64,7 +65,7 @@ class Solution:
                                 results[i] = disc[limit_direction[i]]
                                 continue
                     results[i] = self.etas[0](t[i])
-                elif t[i] <= self.t[-1]:
+                elif t[i] <= self.t[-1] + 2*eps:
                     results[i] = self.etas[idx](t[i])
                 else:
                     if ov:
@@ -80,10 +81,11 @@ class Solution:
         def eval(t, ov=ov, limit_direction=limit_direction):
             self.eta_calls += 1
             t = np.atleast_1d(t)  # accept scalar or array
+            eps = np.finfo(float).eps
             results = np.empty((len(t), self.problem.ndim), dtype=float)
             for i in range(len(t)):
                 idx = bisect_left(self.t, t[i])
-                if t[i] <= self.t[0]:
+                if t[i] <= self.t[0] + 2*eps:
                     if limit_direction is not None:
                         if limit_direction[i] != 0:
                             if t[i] in self.phi_t_breaks:
@@ -99,7 +101,7 @@ class Solution:
                                     results[i] = self.etas_t[1](self.t[0])
                                     continue
                     results[i] = self.etas_t[0](t[i])
-                elif t[i] <= self.t[-1]:
+                elif t[i] <= self.t[-1] + 2*eps:
                     results[i] = self.etas_t[idx](t[i])
                 else:
                     if ov:

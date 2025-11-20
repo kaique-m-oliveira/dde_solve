@@ -148,6 +148,7 @@ class RungeKutta:
                     self.disc_position = sign_change_beta
                     self.get_disc(beta, old_disc)
                     return True
+
         return False
 
     def get_disc(self, delay, old_disc):
@@ -201,10 +202,16 @@ class RungeKutta:
         for i in range(0, n_stages):
             ti = tn + c[i] * h
             yi = yn + h * (A[i][0:i] @ self.K[0: i])
+            # print('ti = ', ti)
+            # print('yi = ', yi)
 
             alpha_i = alpha(ti, yi)
             if np.all(alpha_i <= np.full(self.ndelays, tn)):
                 Y_tilde = eta(alpha_i)
+                # real_sol = lambda t: 1 - t if t < 0 else t + 1
+                # real_Y = real_sol(alpha_i)
+                # print('alpha_i', alpha_i)
+                # print('Y_tilde', Y_tilde, 'real_Y', real_Y, 'diff', Y_tilde - real_Y )
 
             elif eta_ov is not None:
                 Y_tilde = eta_ov(alpha_i)
@@ -226,6 +233,10 @@ class RungeKutta:
 
                 if np.all(beta_i <= np.full(self.ndelays, tn)):
                     Z_tilde = self.eta_t(beta_i)
+                    # real_dev = lambda t: -1 if t < 0 else 1
+                    # real_Z = real_dev(beta_i)
+                    # print('beta_i', beta_i)
+                    # print('Z_tilde', Z_tilde, 'real_Z', real_Z, 'diff', Z_tilde - real_Z )
 
                 elif eta_t_ov is not None:
                     Z_tilde = eta_t_ov(beta_i)
@@ -240,9 +251,26 @@ class RungeKutta:
                 self.K[i] = f(ti, yi, Y_tilde, Z_tilde)
                 self.solution.feval += 1
                 self.stages_calculated = i + 1
+            # print('')
 
         self.y[1] = yn + h * (self.b @ self.K[0:n_stages])
         self.stages_calculated = n_stages
+       
+        # real_sol = lambda t: t + 1
+        # diff = np.abs(self.y[1] - real_sol(self.t[0] + self.h))
+        # dev_diff = np.abs(self.K[n_stages - 1] - 1)
+        # print('K', self.K)
+        # print('y1', self.y[1])
+        # print(f't = {self.t[0] + self.h}, diff = {diff}, dev_diff = {dev_diff}')
+        # K_test = np.array([1,1,1,1,1,1,1])
+        # y_test = yn + h * (self.b @ K_test )
+        # diff_test = np.abs(y_test - real_sol(self.t[0] + self.h))
+        # print('K_test', K_test)
+        # print('y_test', y_test)
+        # print('real_sol', real_sol(self.t[0] + self.h))
+        # print(f'TEST t = {self.t[0] + self.h}, diff = {diff_test}')
+        # print('----------------------------------------------------')
+        # input('building stages')
 
         # safety condition
         if np.isnan(self.y[1]).any():
@@ -588,6 +616,7 @@ class RungeKutta:
 
         # Safety condition
         if np.isnan(self.K).any() or np.isinf(self.K).any():
+            print('failed is nan')
             self.h = self.h/2
             self.h_next = self.h
             return False
@@ -615,6 +644,7 @@ class RungeKutta:
         self.h_next = min(self.h_next, 0.3)
 
         if not discrete_disc_satisfied or not uniform_disc_satistied:
+            # print('failed normally', 'disc error', self.disc_local_error, 'uni error', self.uni_local_error)
             self.h = self.h_next
             return False
 

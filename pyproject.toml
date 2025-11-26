@@ -10,9 +10,9 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
 authors = [
-    { name="Kaique Oliveira", email="your_email@example.com" }
+    { name="Kaique M. Oliveira", email="kaique_oliveira@usp.br" }
 ]
-keywords = ["dde", "delay differential equations", "numerical methods"]
+keywords = ["dde", "delay differential equations", "numerical solver", "dde_solver"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -26,6 +26,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/kaique-m-oliveira/dde_solve"
 Repository = "https://github.com/kaique-m-oliveira/dde_solve"
+Tests = "https://github.com/kaique-m-oliveira/ddetst"  
 
 [tool.setuptools.packages.find]
 where = ["."]  

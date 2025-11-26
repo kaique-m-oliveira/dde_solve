@@ -166,6 +166,10 @@ pip install dde-solve
 
 ---
 
+**Test Repository**: [kaique-m-oliveira/dde_solve_tests](https://github.com/kaique-m-oliveira/ddetst)
+
+---
+
 # License
 
 MIT License.
